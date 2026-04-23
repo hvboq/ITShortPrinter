@@ -191,3 +191,106 @@ def get_results_cache_path() -> str:
         path (str): The path to the results cache folder
     """
     return os.path.join(get_cache_path(), 'scraper_results.csv')
+
+def get_news_cache_path() -> str:
+    """
+    Gets the path to the collected news cache file.
+
+    Returns:
+        path (str): The path to the news cache file
+    """
+    return os.path.join(get_cache_path(), 'news.json')
+
+def _ensure_news_cache() -> None:
+    cache_path = get_news_cache_path()
+    os.makedirs(get_cache_path(), exist_ok=True)
+    if not os.path.exists(cache_path):
+        with open(cache_path, 'w', encoding='utf-8') as file:
+            json.dump({"processed_urls": [], "latest_candidates": []}, file, indent=4)
+
+def get_processed_news_urls() -> List[str]:
+    """
+    Gets previously processed news article URLs.
+
+    Returns:
+        urls (List[str]): List of processed URLs
+    """
+    _ensure_news_cache()
+
+    with open(get_news_cache_path(), 'r', encoding='utf-8') as file:
+        parsed = json.load(file) or {}
+
+    urls = parsed.get("processed_urls", [])
+    if not isinstance(urls, list):
+        return []
+
+    return [str(url).strip() for url in urls if str(url).strip()]
+
+def mark_news_processed(url: str) -> None:
+    """
+    Marks a news URL as processed.
+
+    Args:
+        url (str): Article URL
+
+    Returns:
+        None
+    """
+    normalized_url = str(url).strip()
+    if not normalized_url:
+        return
+
+    _ensure_news_cache()
+
+    with open(get_news_cache_path(), 'r', encoding='utf-8') as file:
+        parsed = json.load(file) or {}
+
+    processed_urls = parsed.get("processed_urls", [])
+    if not isinstance(processed_urls, list):
+        processed_urls = []
+
+    if normalized_url not in processed_urls:
+        processed_urls.append(normalized_url)
+
+    parsed["processed_urls"] = processed_urls[-500:]
+
+    with open(get_news_cache_path(), 'w', encoding='utf-8') as file:
+        json.dump(parsed, file, indent=4, ensure_ascii=False)
+
+def save_latest_news_candidates(candidates: List[dict]) -> None:
+    """
+    Saves the latest ranked news candidates for later inspection.
+
+    Args:
+        candidates (List[dict]): Ranked candidates
+
+    Returns:
+        None
+    """
+    _ensure_news_cache()
+
+    with open(get_news_cache_path(), 'r', encoding='utf-8') as file:
+        parsed = json.load(file) or {}
+
+    parsed["latest_candidates"] = candidates
+
+    with open(get_news_cache_path(), 'w', encoding='utf-8') as file:
+        json.dump(parsed, file, indent=4, ensure_ascii=False)
+
+def get_latest_news_candidates() -> List[dict]:
+    """
+    Gets the latest ranked news candidates.
+
+    Returns:
+        candidates (List[dict]): Latest candidates
+    """
+    _ensure_news_cache()
+
+    with open(get_news_cache_path(), 'r', encoding='utf-8') as file:
+        parsed = json.load(file) or {}
+
+    candidates = parsed.get("latest_candidates", [])
+    if not isinstance(candidates, list):
+        return []
+
+    return candidates

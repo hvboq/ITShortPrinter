@@ -1,9 +1,16 @@
 import os
 import sys
 import json
-import srt_equalizer
+try:
+    import srt_equalizer
+except ImportError:
+    srt_equalizer = None
 
-from termcolor import colored
+try:
+    from termcolor import colored
+except ImportError:
+    def colored(text, *_args, **_kwargs):
+        return text
 
 ROOT_DIR = os.path.dirname(sys.path[0])
 
@@ -36,7 +43,7 @@ def get_email_credentials() -> dict:
     Returns:
         credentials (dict): The email credentials
     """
-    with open(os.path.join(ROOT_DIR, "config.json"), "r") as file:
+    with open(os.path.join(ROOT_DIR, "config.json"), "r", encoding="utf-8") as file:
         return json.load(file)["email"]
 
 def get_verbose() -> bool:
@@ -46,7 +53,7 @@ def get_verbose() -> bool:
     Returns:
         verbose (bool): The verbose flag
     """
-    with open(os.path.join(ROOT_DIR, "config.json"), "r") as file:
+    with open(os.path.join(ROOT_DIR, "config.json"), "r", encoding="utf-8") as file:
         return json.load(file)["verbose"]
 
 def get_firefox_profile_path() -> str:
@@ -56,7 +63,7 @@ def get_firefox_profile_path() -> str:
     Returns:
         path (str): The path to the Firefox profile
     """
-    with open(os.path.join(ROOT_DIR, "config.json"), "r") as file:
+    with open(os.path.join(ROOT_DIR, "config.json"), "r", encoding="utf-8") as file:
         return json.load(file)["firefox_profile"]
 
 def get_headless() -> bool:
@@ -66,7 +73,7 @@ def get_headless() -> bool:
     Returns:
         headless (bool): The headless flag
     """
-    with open(os.path.join(ROOT_DIR, "config.json"), "r") as file:
+    with open(os.path.join(ROOT_DIR, "config.json"), "r", encoding="utf-8") as file:
         return json.load(file)["headless"]
 
 def get_ollama_base_url() -> str:
@@ -76,8 +83,9 @@ def get_ollama_base_url() -> str:
     Returns:
         url (str): The Ollama base URL
     """
-    with open(os.path.join(ROOT_DIR, "config.json"), "r") as file:
-        return json.load(file).get("ollama_base_url", "http://127.0.0.1:11434")
+    with open(os.path.join(ROOT_DIR, "config.json"), "r", encoding="utf-8") as file:
+        configured = json.load(file).get("ollama_base_url", "http://127.0.0.1:11434")
+        return os.environ.get("OLLAMA_BASE_URL", configured)
 
 def get_ollama_model() -> str:
     """
@@ -86,8 +94,9 @@ def get_ollama_model() -> str:
     Returns:
         model (str): The Ollama model name, or empty string if not set.
     """
-    with open(os.path.join(ROOT_DIR, "config.json"), "r") as file:
-        return json.load(file).get("ollama_model", "")
+    with open(os.path.join(ROOT_DIR, "config.json"), "r", encoding="utf-8") as file:
+        configured = json.load(file).get("ollama_model", "")
+        return os.environ.get("OLLAMA_MODEL", configured)
 
 def get_twitter_language() -> str:
     """
@@ -96,7 +105,7 @@ def get_twitter_language() -> str:
     Returns:
         language (str): The Twitter language
     """
-    with open(os.path.join(ROOT_DIR, "config.json"), "r") as file:
+    with open(os.path.join(ROOT_DIR, "config.json"), "r", encoding="utf-8") as file:
         return json.load(file)["twitter_language"]
 
 def get_nanobanana2_api_base_url() -> str:
@@ -106,7 +115,7 @@ def get_nanobanana2_api_base_url() -> str:
     Returns:
         url (str): API base URL
     """
-    with open(os.path.join(ROOT_DIR, "config.json"), "r") as file:
+    with open(os.path.join(ROOT_DIR, "config.json"), "r", encoding="utf-8") as file:
         return json.load(file).get(
             "nanobanana2_api_base_url",
             "https://generativelanguage.googleapis.com/v1beta",
@@ -119,7 +128,7 @@ def get_nanobanana2_api_key() -> str:
     Returns:
         key (str): API key
     """
-    with open(os.path.join(ROOT_DIR, "config.json"), "r") as file:
+    with open(os.path.join(ROOT_DIR, "config.json"), "r", encoding="utf-8") as file:
         configured = json.load(file).get("nanobanana2_api_key", "")
         return configured or os.environ.get("GEMINI_API_KEY", "")
 
@@ -130,7 +139,7 @@ def get_nanobanana2_model() -> str:
     Returns:
         model (str): Model name
     """
-    with open(os.path.join(ROOT_DIR, "config.json"), "r") as file:
+    with open(os.path.join(ROOT_DIR, "config.json"), "r", encoding="utf-8") as file:
         return json.load(file).get("nanobanana2_model", "gemini-3.1-flash-image-preview")
 
 def get_nanobanana2_aspect_ratio() -> str:
@@ -140,7 +149,7 @@ def get_nanobanana2_aspect_ratio() -> str:
     Returns:
         ratio (str): Aspect ratio
     """
-    with open(os.path.join(ROOT_DIR, "config.json"), "r") as file:
+    with open(os.path.join(ROOT_DIR, "config.json"), "r", encoding="utf-8") as file:
         return json.load(file).get("nanobanana2_aspect_ratio", "9:16")
 
 def get_threads() -> int:
@@ -150,7 +159,7 @@ def get_threads() -> int:
     Returns:
         threads (int): Amount of threads
     """
-    with open(os.path.join(ROOT_DIR, "config.json"), "r") as file:
+    with open(os.path.join(ROOT_DIR, "config.json"), "r", encoding="utf-8") as file:
         return json.load(file)["threads"]
     
 def get_zip_url() -> str:
@@ -160,7 +169,7 @@ def get_zip_url() -> str:
     Returns:
         url (str): The URL to the zip file
     """
-    with open(os.path.join(ROOT_DIR, "config.json"), "r") as file:
+    with open(os.path.join(ROOT_DIR, "config.json"), "r", encoding="utf-8") as file:
         return json.load(file)["zip_url"]
 
 def get_is_for_kids() -> bool:
@@ -170,7 +179,7 @@ def get_is_for_kids() -> bool:
     Returns:
         is_for_kids (bool): The is for kids flag
     """
-    with open(os.path.join(ROOT_DIR, "config.json"), "r") as file:
+    with open(os.path.join(ROOT_DIR, "config.json"), "r", encoding="utf-8") as file:
         return json.load(file)["is_for_kids"]
 
 def get_google_maps_scraper_zip_url() -> str:
@@ -180,7 +189,7 @@ def get_google_maps_scraper_zip_url() -> str:
     Returns:
         url (str): The URL to the zip file
     """
-    with open(os.path.join(ROOT_DIR, "config.json"), "r") as file:
+    with open(os.path.join(ROOT_DIR, "config.json"), "r", encoding="utf-8") as file:
         return json.load(file)["google_maps_scraper"]
 
 def get_google_maps_scraper_niche() -> str:
@@ -190,7 +199,7 @@ def get_google_maps_scraper_niche() -> str:
     Returns:
         niche (str): The niche
     """
-    with open(os.path.join(ROOT_DIR, "config.json"), "r") as file:
+    with open(os.path.join(ROOT_DIR, "config.json"), "r", encoding="utf-8") as file:
         return json.load(file)["google_maps_scraper_niche"]
 
 def get_scraper_timeout() -> int:
@@ -200,7 +209,7 @@ def get_scraper_timeout() -> int:
     Returns:
         timeout (int): The timeout
     """
-    with open(os.path.join(ROOT_DIR, "config.json"), "r") as file:
+    with open(os.path.join(ROOT_DIR, "config.json"), "r", encoding="utf-8") as file:
         return json.load(file)["scraper_timeout"] or 300
 
 def get_outreach_message_subject() -> str:
@@ -210,7 +219,7 @@ def get_outreach_message_subject() -> str:
     Returns:
         subject (str): The outreach message subject
     """
-    with open(os.path.join(ROOT_DIR, "config.json"), "r") as file:
+    with open(os.path.join(ROOT_DIR, "config.json"), "r", encoding="utf-8") as file:
         return json.load(file)["outreach_message_subject"]
     
 def get_outreach_message_body_file() -> str:
@@ -220,7 +229,7 @@ def get_outreach_message_body_file() -> str:
     Returns:
         file (str): The outreach message body file
     """
-    with open(os.path.join(ROOT_DIR, "config.json"), "r") as file:
+    with open(os.path.join(ROOT_DIR, "config.json"), "r", encoding="utf-8") as file:
         return json.load(file)["outreach_message_body_file"]
 
 def get_tts_voice() -> str:
@@ -230,7 +239,7 @@ def get_tts_voice() -> str:
     Returns:
         voice (str): The TTS voice
     """
-    with open(os.path.join(ROOT_DIR, "config.json"), "r") as file:
+    with open(os.path.join(ROOT_DIR, "config.json"), "r", encoding="utf-8") as file:
         return json.load(file).get("tts_voice", "Jasper")
 
 def get_assemblyai_api_key() -> str:
@@ -240,7 +249,7 @@ def get_assemblyai_api_key() -> str:
     Returns:
         key (str): The AssemblyAI API key
     """
-    with open(os.path.join(ROOT_DIR, "config.json"), "r") as file:
+    with open(os.path.join(ROOT_DIR, "config.json"), "r", encoding="utf-8") as file:
         return json.load(file)["assembly_ai_api_key"]
 
 def get_stt_provider() -> str:
@@ -250,7 +259,7 @@ def get_stt_provider() -> str:
     Returns:
         provider (str): The STT provider
     """
-    with open(os.path.join(ROOT_DIR, "config.json"), "r") as file:
+    with open(os.path.join(ROOT_DIR, "config.json"), "r", encoding="utf-8") as file:
         return json.load(file).get("stt_provider", "local_whisper")
 
 def get_whisper_model() -> str:
@@ -260,7 +269,7 @@ def get_whisper_model() -> str:
     Returns:
         model (str): Whisper model name
     """
-    with open(os.path.join(ROOT_DIR, "config.json"), "r") as file:
+    with open(os.path.join(ROOT_DIR, "config.json"), "r", encoding="utf-8") as file:
         return json.load(file).get("whisper_model", "base")
 
 def get_whisper_device() -> str:
@@ -270,7 +279,7 @@ def get_whisper_device() -> str:
     Returns:
         device (str): Whisper device
     """
-    with open(os.path.join(ROOT_DIR, "config.json"), "r") as file:
+    with open(os.path.join(ROOT_DIR, "config.json"), "r", encoding="utf-8") as file:
         return json.load(file).get("whisper_device", "auto")
 
 def get_whisper_compute_type() -> str:
@@ -280,7 +289,7 @@ def get_whisper_compute_type() -> str:
     Returns:
         compute_type (str): Whisper compute type
     """
-    with open(os.path.join(ROOT_DIR, "config.json"), "r") as file:
+    with open(os.path.join(ROOT_DIR, "config.json"), "r", encoding="utf-8") as file:
         return json.load(file).get("whisper_compute_type", "int8")
     
 def equalize_subtitles(srt_path: str, max_chars: int = 10) -> None:
@@ -294,6 +303,10 @@ def equalize_subtitles(srt_path: str, max_chars: int = 10) -> None:
     Returns:
         None
     """
+    if srt_equalizer is None:
+        raise ImportError(
+            "srt_equalizer is not installed. Install project dependencies to equalize subtitles."
+        )
     srt_equalizer.equalize_srt_file(srt_path, srt_path, max_chars)
     
 def get_font() -> str:
@@ -303,7 +316,7 @@ def get_font() -> str:
     Returns:
         font (str): The font
     """
-    with open(os.path.join(ROOT_DIR, "config.json"), "r") as file:
+    with open(os.path.join(ROOT_DIR, "config.json"), "r", encoding="utf-8") as file:
         return json.load(file)["font"]
 
 def get_fonts_dir() -> str:
@@ -322,7 +335,7 @@ def get_imagemagick_path() -> str:
     Returns:
         path (str): The path to ImageMagick
     """
-    with open(os.path.join(ROOT_DIR, "config.json"), "r") as file:
+    with open(os.path.join(ROOT_DIR, "config.json"), "r", encoding="utf-8") as file:
         return json.load(file)["imagemagick_path"]
 
 def get_script_sentence_length() -> int:
@@ -333,13 +346,127 @@ def get_script_sentence_length() -> int:
     Returns:
         length (int): Length of script's sentence
     """
-    with open(os.path.join(ROOT_DIR, "config.json"), "r") as file:
+    with open(os.path.join(ROOT_DIR, "config.json"), "r", encoding="utf-8") as file:
         config_json = json.load(file)
         if (config_json.get("script_sentence_length") is not None):
             return config_json["script_sentence_length"]
         else:
             return 4
 
+def get_news_pipeline_config() -> dict:
+    """
+    Gets the news collection pipeline configuration with safe defaults.
+
+    Returns:
+        config (dict): Sanitized news pipeline configuration
+    """
+    defaults = {
+        "enabled": False,
+        "max_article_age_hours": 48,
+        "max_candidates_per_source": 6,
+        "max_selected_articles": 5,
+        "sources": ["theverge", "zdnet_korea", "bloter"],
+        "priority_keywords": [
+            "samsung",
+            "galaxy",
+            "apple",
+            "qualcomm",
+            "mediatek",
+            "nvidia",
+            "tsmc",
+            "sony",
+            "xiaomi",
+            "battery",
+            "silicon-carbon",
+            "display",
+            "udc",
+            "foldable",
+            "semiconductor",
+            "chip",
+            "launch",
+            "release",
+            "announce",
+            "출시",
+            "공개",
+            "발표",
+            "반도체",
+            "디스플레이",
+            "배터리",
+        ],
+    }
+    supported_sources = {"theverge", "zdnet_korea", "bloter"}
+
+    with open(os.path.join(ROOT_DIR, "config.json"), "r", encoding="utf-8") as file:
+        config_json = json.load(file)
+
+    raw_config = config_json.get("news_pipeline", {})
+    if not isinstance(raw_config, dict):
+        raw_config = {}
+
+    raw_sources = raw_config.get("sources", defaults["sources"])
+    normalized_sources = []
+    if isinstance(raw_sources, list):
+        for source in raw_sources:
+            normalized_source = str(source).strip().lower()
+            if (
+                normalized_source in supported_sources
+                and normalized_source not in normalized_sources
+            ):
+                normalized_sources.append(normalized_source)
+
+    if not normalized_sources:
+        normalized_sources = defaults["sources"].copy()
+
+    raw_keywords = raw_config.get("priority_keywords", defaults["priority_keywords"])
+    normalized_keywords = []
+    if isinstance(raw_keywords, list):
+        for keyword in raw_keywords:
+            normalized_keyword = str(keyword).strip()
+            if normalized_keyword:
+                normalized_keywords.append(normalized_keyword)
+
+    if not normalized_keywords:
+        normalized_keywords = defaults["priority_keywords"].copy()
+
+    for keyword in (
+        "출시",
+        "공개",
+        "발표",
+        "적용",
+        "양산",
+        "상용",
+        "반도체",
+        "디스플레이",
+        "배터리",
+    ):
+        if keyword not in normalized_keywords:
+            normalized_keywords.append(keyword)
+
+    def _coerce_positive_int(value, default):
+        try:
+            parsed = int(value)
+            return parsed if parsed > 0 else default
+        except (TypeError, ValueError):
+            return default
+
+    return {
+        "enabled": bool(raw_config.get("enabled", defaults["enabled"])),
+        "max_article_age_hours": _coerce_positive_int(
+            raw_config.get("max_article_age_hours"),
+            defaults["max_article_age_hours"],
+        ),
+        "max_candidates_per_source": _coerce_positive_int(
+            raw_config.get("max_candidates_per_source"),
+            defaults["max_candidates_per_source"],
+        ),
+        "max_selected_articles": _coerce_positive_int(
+            raw_config.get("max_selected_articles"),
+            defaults["max_selected_articles"],
+        ),
+        "sources": normalized_sources,
+        "priority_keywords": normalized_keywords,
+    }
+    
 def get_post_bridge_config() -> dict:
     """
     Gets the Post Bridge configuration with safe defaults.
@@ -356,7 +483,7 @@ def get_post_bridge_config() -> dict:
     }
     supported_platforms = {"tiktok", "instagram"}
 
-    with open(os.path.join(ROOT_DIR, "config.json"), "r") as file:
+    with open(os.path.join(ROOT_DIR, "config.json"), "r", encoding="utf-8") as file:
         config_json = json.load(file)
 
     raw_config = config_json.get("post_bridge", {})
@@ -402,4 +529,161 @@ def get_post_bridge_config() -> dict:
         "auto_crosspost": bool(
             raw_config.get("auto_crosspost", defaults["auto_crosspost"])
         ),
+    }
+
+def get_news_pipeline_config() -> dict:
+    """
+    Gets the news collection pipeline configuration with safe defaults.
+
+    Returns:
+        config (dict): Sanitized news pipeline configuration
+    """
+    defaults = {
+        "enabled": False,
+        "max_article_age_hours": 48,
+        "max_candidates_per_source": 6,
+        "max_selected_articles": 5,
+        "use_llm_scoring": True,
+        "sources": ["theverge", "zdnet_korea", "bloter"],
+        "priority_keywords": [
+            "samsung",
+            "galaxy",
+            "apple",
+            "qualcomm",
+            "mediatek",
+            "nvidia",
+            "tsmc",
+            "sony",
+            "xiaomi",
+            "battery",
+            "silicon-carbon",
+            "display",
+            "udc",
+            "foldable",
+            "semiconductor",
+            "chip",
+            "consumer",
+            "smartphone",
+            "laptop",
+            "tablet",
+            "wearable",
+            "camera",
+            "launch",
+            "release",
+            "unveil",
+            "announce",
+            "출시",
+            "공개",
+            "발표",
+            "상용화",
+            "양산",
+            "적용",
+            "반도체",
+            "디스플레이",
+            "배터리",
+        ],
+        "scoring_weights": {
+            "public_interest": 0.35,
+            "realism": 0.30,
+            "llm": 0.25,
+            "keyword": 0.10,
+        },
+    }
+    supported_sources = {"theverge", "zdnet_korea", "bloter"}
+
+    with open(os.path.join(ROOT_DIR, "config.json"), "r", encoding="utf-8") as file:
+        config_json = json.load(file)
+
+    raw_config = config_json.get("news_pipeline", {})
+    if not isinstance(raw_config, dict):
+        raw_config = {}
+
+    raw_sources = raw_config.get("sources", defaults["sources"])
+    normalized_sources = []
+    if isinstance(raw_sources, list):
+        for source in raw_sources:
+            normalized_source = str(source).strip().lower()
+            if (
+                normalized_source in supported_sources
+                and normalized_source not in normalized_sources
+            ):
+                normalized_sources.append(normalized_source)
+
+    if not normalized_sources:
+        normalized_sources = defaults["sources"].copy()
+
+    raw_keywords = raw_config.get("priority_keywords", defaults["priority_keywords"])
+    normalized_keywords = []
+    if isinstance(raw_keywords, list):
+        for keyword in raw_keywords:
+            normalized_keyword = str(keyword).strip()
+            if normalized_keyword:
+                normalized_keywords.append(normalized_keyword)
+
+    if not normalized_keywords:
+        normalized_keywords = defaults["priority_keywords"].copy()
+
+    for keyword in (
+        "출시",
+        "공개",
+        "발표",
+        "적용",
+        "양산",
+        "상용",
+        "반도체",
+        "디스플레이",
+        "배터리",
+    ):
+        if keyword not in normalized_keywords:
+            normalized_keywords.append(keyword)
+
+    raw_weights = raw_config.get("scoring_weights", defaults["scoring_weights"])
+    normalized_weights = {}
+    for key, default_value in defaults["scoring_weights"].items():
+        value = default_value
+        if isinstance(raw_weights, dict):
+            try:
+                parsed = float(raw_weights.get(key, default_value))
+                if parsed >= 0:
+                    value = parsed
+            except (TypeError, ValueError):
+                value = default_value
+        normalized_weights[key] = value
+
+    total_weight = sum(normalized_weights.values())
+    if total_weight <= 0:
+        normalized_weights = defaults["scoring_weights"].copy()
+        total_weight = sum(normalized_weights.values())
+
+    normalized_weights = {
+        key: value / total_weight for key, value in normalized_weights.items()
+    }
+
+    def _coerce_positive_int(value, default):
+        try:
+            parsed = int(value)
+            return parsed if parsed > 0 else default
+        except (TypeError, ValueError):
+            return default
+
+    return {
+        "enabled": bool(raw_config.get("enabled", defaults["enabled"])),
+        "max_article_age_hours": _coerce_positive_int(
+            raw_config.get("max_article_age_hours"),
+            defaults["max_article_age_hours"],
+        ),
+        "max_candidates_per_source": _coerce_positive_int(
+            raw_config.get("max_candidates_per_source"),
+            defaults["max_candidates_per_source"],
+        ),
+        "max_selected_articles": _coerce_positive_int(
+            raw_config.get("max_selected_articles"),
+            defaults["max_selected_articles"],
+        ),
+        "use_llm_scoring": bool(
+            raw_config.get("use_llm_scoring", defaults["use_llm_scoring"])
+        ),
+        "sources": normalized_sources,
+        "priority_keywords": normalized_keywords,
+        "scoring_weights": normalized_weights,
     }

@@ -42,6 +42,8 @@ def main() -> int:
     failures = 0
 
     stt_provider = str(cfg.get("stt_provider", "local_whisper")).lower()
+    configured_text_model = str(cfg.get("ollama_model", "")).strip()
+    using_gemini_text = configured_text_model.lower().startswith("gemini")
 
     ok(f"stt_provider={stt_provider}")
 
@@ -63,23 +65,26 @@ def main() -> int:
     else:
         warn("firefox_profile is empty. Twitter/YouTube automation requires this.")
 
-    # Ollama (LLM)
-    base = str(cfg.get("ollama_base_url", "http://127.0.0.1:11434")).rstrip("/")
-    reachable, detail = check_url(f"{base}/api/tags")
-    if not reachable:
-        fail(f"Ollama is not reachable at {base}: {detail}")
-        failures += 1
+    # Text generation provider
+    if using_gemini_text:
+        ok(f"text model uses Google Gemini: {configured_text_model}")
     else:
-        ok(f"Ollama reachable at {base}")
-        try:
-            tags = requests.get(f"{base}/api/tags", timeout=5).json()
-            models = [m.get("name") for m in tags.get("models", [])]
-            if models:
-                ok(f"Ollama models available: {', '.join(models[:10])}")
-            else:
-                warn("No models found on Ollama. Pull a model first (e.g. 'ollama pull llama3.2:3b').")
-        except Exception as exc:
-            warn(f"Could not validate Ollama model list: {exc}")
+        base = str(cfg.get("ollama_base_url", "http://127.0.0.1:11434")).rstrip("/")
+        reachable, detail = check_url(f"{base}/api/tags")
+        if not reachable:
+            fail(f"Ollama is not reachable at {base}: {detail}")
+            failures += 1
+        else:
+            ok(f"Ollama reachable at {base}")
+            try:
+                tags = requests.get(f"{base}/api/tags", timeout=5).json()
+                models = [m.get("name") for m in tags.get("models", [])]
+                if models:
+                    ok(f"Ollama models available: {', '.join(models[:10])}")
+                else:
+                    warn("No models found on Ollama. Pull a model first (e.g. 'ollama pull llama3.2:3b').")
+            except Exception as exc:
+                warn(f"Could not validate Ollama model list: {exc}")
 
     # Nano Banana 2 (image generation)
     api_key = cfg.get("nanobanana2_api_key", "") or os.environ.get("GEMINI_API_KEY", "")
