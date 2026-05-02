@@ -16,6 +16,7 @@ from prettytable import PrettyTable
 from classes.Outreach import Outreach
 from classes.AFM import AffiliateMarketing
 from llm_provider import list_models, select_model, get_active_model
+from news.collector import get_top_news
 from post_bridge_integration import maybe_crosspost_youtube_short
 
 def main():
@@ -161,7 +162,18 @@ def main():
                     tts = TTS()
 
                     if user_input == 1:
-                        youtube.generate_video(tts)
+                        top_news = get_top_news()
+                        if not top_news:
+                            warning("No ranked tech news found. Try again later or check RSS/network settings.")
+                            continue
+
+                        info("Selected top ranked news:", False)
+                        print(colored(f" => {top_news.get('title', '')}", "cyan"))
+                        print(colored(f" => Shorts Score: {top_news.get('shorts_score', 'N/A')}", "green"))
+                        if top_news.get("url"):
+                            print(colored(f" => Source: {top_news.get('url')}", "blue"))
+
+                        youtube.generate_video_from_news(tts, top_news)
                         upload_to_yt = question("Do you want to upload this video to YouTube? (Yes/No): ")
                         if upload_to_yt.lower() == "yes":
                             upload_success = youtube.upload_video()
@@ -174,6 +186,19 @@ def main():
                             else:
                                 warning("YouTube upload failed. Skipping Post Bridge cross-post.")
                     elif user_input == 2:
+                        youtube.generate_video(tts)
+                        upload_to_yt = question("Do you want to upload this video to YouTube? (Yes/No): ")
+                        if upload_to_yt.lower() == "yes":
+                            upload_success = youtube.upload_video()
+                            if upload_success:
+                                maybe_crosspost_youtube_short(
+                                    video_path=youtube.video_path,
+                                    title=youtube.metadata.get("title", ""),
+                                    interactive=True,
+                                )
+                            else:
+                                warning("YouTube upload failed. Skipping Post Bridge cross-post.")
+                    elif user_input == 3:
                         videos = youtube.get_videos()
 
                         if len(videos) > 0:
@@ -190,7 +215,7 @@ def main():
                             print(videos_table)
                         else:
                             warning(" No videos found.")
-                    elif user_input == 3:
+                    elif user_input == 4:
                         info("How often do you want to upload?")
 
                         info("\n============ OPTIONS ============", False)
@@ -218,7 +243,7 @@ def main():
                             success("Set up CRON Job.")
                         else:
                             break
-                    elif user_input == 4:
+                    elif user_input == 5:
                         if get_verbose():
                             info(" => Climbing Options Ladder...", False)
                         break

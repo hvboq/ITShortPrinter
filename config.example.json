@@ -2,13 +2,15 @@
   "verbose": true,
   "firefox_profile": "",
   "headless": false,
-  "ollama_base_url": "http://127.0.0.1:11434",
-  "ollama_model": "",
+  "ollama_base_url": "http://host.docker.internal:11434",
+  "ollama_model": "gemma4:e4b",
   "twitter_language": "English",
   "nanobanana2_api_base_url": "https://generativelanguage.googleapis.com/v1beta",
   "nanobanana2_api_key": "",
   "nanobanana2_model": "gemini-3.1-flash-image-preview",
   "nanobanana2_aspect_ratio": "9:16",
+  "image_provider": "gemini",
+  "max_image_prompts": 5,
   "threads": 2,
   "zip_url": "",
   "is_for_kids": false,
@@ -28,14 +30,18 @@
   "whisper_device": "auto",
   "whisper_compute_type": "int8",
   "assembly_ai_api_key": "",
-  "tts_voice": "Jasper",
+  "tts_voice": "ko-KR-SunHiNeural",
+  "tts_provider": "edge",
   "font": "bold_font.ttf",
   "imagemagick_path": "Path to magick.exe or on linux/macOS just /usr/bin/convert",
   "script_sentence_length": 4,
   "post_bridge": {
     "enabled": false,
     "api_key": "",
-    "platforms": ["tiktok", "instagram"],
+    "platforms": [
+      "tiktok",
+      "instagram"
+    ],
     "account_ids": [],
     "auto_crosspost": false
   }

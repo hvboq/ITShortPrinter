@@ -9,6 +9,7 @@ webdriver_manager
 selenium_firefox
 selenium
 ollama
+edge-tts
 moviepy
 Pillow>=10.0.0
 yagmail

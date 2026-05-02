@@ -1,11 +1,55 @@
 import os
 import sys
 import json
-import srt_equalizer
 
-from termcolor import colored
+try:
+    from termcolor import colored
+except ModuleNotFoundError:
+    def colored(text, *_args, **_kwargs):
+        return text
 
 ROOT_DIR = os.path.dirname(sys.path[0])
+
+
+def load_env_file(path: str | None = None, override: bool = False) -> None:
+    """Load simple KEY=VALUE pairs from a local .env file without extra dependencies."""
+    env_path = path or os.path.join(ROOT_DIR, ".env")
+    if not os.path.exists(env_path):
+        return
+
+    with open(env_path, "r", encoding="utf-8") as file:
+        for raw_line in file:
+            line = raw_line.strip()
+            if not line or line.startswith("#") or "=" not in line:
+                continue
+            key, value = line.split("=", 1)
+            key = key.strip()
+            value = value.strip().strip('"').strip("'")
+            if not key:
+                continue
+            if override or key not in os.environ:
+                os.environ[key] = value
+
+
+def get_env_var(name: str, default: str = "") -> str:
+    """Read env vars from the current process, then Docker PID 1 env if available."""
+    value = os.environ.get(name, "")
+    if value:
+        return value
+
+    try:
+        with open("/proc/1/environ", "rb") as file:
+            for item in file.read().split(b"\0"):
+                prefix = (name + "=").encode()
+                if item.startswith(prefix):
+                    return item[len(prefix):].decode("utf-8", "ignore")
+    except OSError:
+        pass
+
+    return default
+
+
+load_env_file()
 
 def assert_folder_structure() -> None:
     """
@@ -76,18 +120,22 @@ def get_ollama_base_url() -> str:
     Returns:
         url (str): The Ollama base URL
     """
+    env_url = get_env_var("OLLAMA_BASE_URL", "").strip()
+    if env_url:
+        return env_url
+
     with open(os.path.join(ROOT_DIR, "config.json"), "r") as file:
-        return json.load(file).get("ollama_base_url", "http://127.0.0.1:11434")
+        return json.load(file).get("ollama_base_url", "http://host.docker.internal:11434")
 
 def get_ollama_model() -> str:
     """
     Gets the Ollama model name from the config file.
 
     Returns:
-        model (str): The Ollama model name, or empty string if not set.
+        model (str): The Ollama model name, or default gemma4:e4b if not set.
     """
     with open(os.path.join(ROOT_DIR, "config.json"), "r") as file:
-        return json.load(file).get("ollama_model", "")
+        return json.load(file).get("ollama_model", "gemma4:e4b")
 
 def get_twitter_language() -> str:
     """
@@ -121,7 +169,11 @@ def get_nanobanana2_api_key() -> str:
     """
     with open(os.path.join(ROOT_DIR, "config.json"), "r") as file:
         configured = json.load(file).get("nanobanana2_api_key", "")
-        return configured or os.environ.get("GEMINI_API_KEY", "")
+        return (
+            configured
+            or get_env_var("GEMINI_API_KEY", "")
+            or get_env_var("GOOGLE_API_KEY", "")
+        )
 
 def get_nanobanana2_model() -> str:
     """
@@ -142,6 +194,36 @@ def get_nanobanana2_aspect_ratio() -> str:
     """
     with open(os.path.join(ROOT_DIR, "config.json"), "r") as file:
         return json.load(file).get("nanobanana2_aspect_ratio", "9:16")
+
+def get_image_provider() -> str:
+    """
+    Gets the image provider. Use 'gemini' for production and 'placeholder' only for local smoke tests.
+
+    Returns:
+        provider (str): Image provider name
+    """
+    env_provider = get_env_var("IMAGE_PROVIDER", "").strip()
+    if env_provider:
+        return env_provider.lower()
+
+    with open(os.path.join(ROOT_DIR, "config.json"), "r") as file:
+        return json.load(file).get("image_provider", "gemini").lower()
+
+
+def get_max_image_prompts() -> int:
+    """
+    Gets the maximum number of image prompts to use for a single Short.
+
+    Returns:
+        max_prompts (int): Prompt cap
+    """
+    with open(os.path.join(ROOT_DIR, "config.json"), "r") as file:
+        value = json.load(file).get("max_image_prompts", 5)
+    try:
+        return max(1, int(value))
+    except (TypeError, ValueError):
+        return 5
+
 
 def get_threads() -> int:
     """
@@ -233,6 +315,17 @@ def get_tts_voice() -> str:
     with open(os.path.join(ROOT_DIR, "config.json"), "r") as file:
         return json.load(file).get("tts_voice", "Jasper")
 
+
+def get_tts_provider() -> str:
+    """
+    Gets the configured TTS provider.
+
+    Returns:
+        provider (str): The TTS provider. "kitten" uses KittenTTS, "silent" writes a valid silent WAV for smoke tests.
+    """
+    with open(os.path.join(ROOT_DIR, "config.json"), "r") as file:
+        return json.load(file).get("tts_provider", "kitten")
+
 def get_assemblyai_api_key() -> str:
     """
     Gets the AssemblyAI API key.
@@ -294,6 +387,8 @@ def equalize_subtitles(srt_path: str, max_chars: int = 10) -> None:
     Returns:
         None
     """
+    import srt_equalizer
+
     srt_equalizer.equalize_srt_file(srt_path, srt_path, max_chars)
     
 def get_font() -> str:

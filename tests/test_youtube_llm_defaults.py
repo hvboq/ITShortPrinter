@@ -1,0 +1,27 @@
+import sys
+import unittest
+from pathlib import Path
+from unittest.mock import patch
+
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+SRC_DIR = PROJECT_ROOT / "src"
+if str(SRC_DIR) not in sys.path:
+    sys.path.insert(0, str(SRC_DIR))
+
+
+class YouTubeLlmDefaultsTests(unittest.TestCase):
+    def test_generate_response_uses_configured_ollama_model_when_no_model_passed(self):
+        from classes.YouTube import YouTube
+
+        youtube = YouTube.for_local_generation(niche="IT News", language="Korean")
+        with patch("classes.YouTube.get_ollama_model", return_value="gemma4:e4b"), patch(
+            "classes.YouTube.generate_text", return_value="ok"
+        ) as generate_text:
+            response = youtube.generate_response("hello")
+
+        self.assertEqual(response, "ok")
+        generate_text.assert_called_once_with("hello", model_name="gemma4:e4b")
+
+
+if __name__ == "__main__":
+    unittest.main()

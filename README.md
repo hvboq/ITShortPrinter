@@ -1,4 +1,10 @@
-# MoneyPrinter V2
+# MoneyPrinter V2 — Korean IT News Shorts Automation Fork
+
+> **Fork / attribution notice**  
+> This repository is a customized fork of the original [FujiwaraChoki/MoneyPrinterV2](https://github.com/FujiwaraChoki/MoneyPrinterV2) project. The original project automates social-media and YouTube Shorts workflows; this fork extends it for Korean IT-news Shorts generation, Gemini image generation, local Ollama text generation, batch creation, YouTube public upload automation, and post-upload cleanup.
+>
+> Original upstream repository: <https://github.com/FujiwaraChoki/MoneyPrinterV2>  
+> Upstream license: **GNU Affero General Public License v3.0 (AGPL-3.0)**. See [LICENSE](LICENSE).
 
 Sponsored by Post Bridge
 
@@ -85,9 +91,11 @@ Please read [CONTRIBUTING.md](CONTRIBUTING.md) for details on our code of conduc
 
 Please read [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) for details on our code of conduct, and the process for submitting pull requests to us.
 
-## License
+## License and upstream attribution
 
-MoneyPrinterV2 is licensed under `Affero General Public License v3.0`. See [LICENSE](LICENSE) for more information.
+This fork is based on the original [FujiwaraChoki/MoneyPrinterV2](https://github.com/FujiwaraChoki/MoneyPrinterV2) repository.
+
+MoneyPrinterV2 is licensed under the **GNU Affero General Public License v3.0 (AGPL-3.0)**. This customized fork preserves that license; see [LICENSE](LICENSE) for the full license text. If you run a modified version as a network service, review the AGPL-3.0 source-code availability obligations.
 
 ## Acknowledgments
 

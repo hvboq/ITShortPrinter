@@ -1,5 +1,8 @@
 __pycache__
 config.json
+.env
+.env.*
+!.env.example
 .mp/
 venv/
 Songs/
@@ -8,3 +11,9 @@ niche.txt
 *.exe
 auto.sh
 .DS_Store
+
+# Local font files may be proprietary (e.g. Windows Malgun Gothic); do not redistribute.
+fonts/*.ttf
+fonts/*.ttc
+fonts/*.otf
+!fonts/.gitkeep
