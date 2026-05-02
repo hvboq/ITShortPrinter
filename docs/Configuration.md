@@ -1,49 +1,52 @@
 # Configuration
 
-All your configurations will be in a file in the root directory, called `config.json`, which is a copy of `config.example.json`. You can change the values in `config.json` to your liking.
+All your configurations live in a root-level `config.json`, which starts as a copy of `config.example.json`. Update the values in `config.json` for your local environment.
 
 ## Values
 
-- `verbose`: `boolean` - If `true`, the application will print out more information.
-- `firefox_profile`: `string` - The path to your Firefox profile. This is used to use your Social Media Accounts without having to log in every time you run the application.
-- `headless`: `boolean` - If `true`, the application will run in headless mode. This means that the browser will not be visible.
-- `ollama_base_url`: `string` - Base URL of your local Ollama server (default: `http://127.0.0.1:11434`).
-- `ollama_model`: `string` - Ollama model to use for text generation (e.g. `llama3.2:3b`). If empty, the app queries Ollama at startup and lets you pick from the available models interactively.
-- `twitter_language`: `string` - The language that will be used to generate & post tweets.
-- `nanobanana2_api_base_url`: `string` - Nano Banana 2 API base URL (default: `https://generativelanguage.googleapis.com/v1beta`).
-- `nanobanana2_api_key`: `string` - API key for Nano Banana 2 (Gemini image API). If empty, MPV2 falls back to environment variable `GEMINI_API_KEY`.
-- `nanobanana2_model`: `string` - Nano Banana 2 model name (default: `gemini-3.1-flash-image-preview`).
-- `nanobanana2_aspect_ratio`: `string` - Aspect ratio for generated images (default: `9:16`).
-- `threads`: `number` - The amount of threads that will be used to execute operations, e.g. writing to a file using MoviePy.
-- `is_for_kids`: `boolean` - If `true`, the application will upload the video to YouTube Shorts as a video for kids.
-- `google_maps_scraper`: `string` - The URL to the Google Maps scraper. This will be used to scrape Google Maps for local businesses. It is recommended to use the default value.
-- `zip_url`: `string` - The URL to the ZIP file that contains the to be used Songs for the YouTube Shorts Automater.
-- `email`: `object`:
-    - `smtp_server`: `string` - Your SMTP server.
-    - `smtp_port`: `number` - The port of your SMTP server.
-    - `username`: `string` - Your email address.
-    - `password`: `string` - Your email password.
-- `google_maps_scraper_niche`: `string` - The niche you want to scrape Google Maps for.
-- `scraper_timeout`: `number` - The timeout for the Google Maps scraper.
-- `outreach_message_subject`: `string` - The subject of your outreach message. `{{COMPANY_NAME}}` will be replaced with the company name.
-- `outreach_message_body_file`: `string` - The file that contains the body of your outreach message, should be HTML. `{{COMPANY_NAME}}` will be replaced with the company name.
-- `stt_provider`: `string` - Provider for subtitle transcription. Default is `local_whisper`. Options:
-    * `local_whisper`
-    * `third_party_assemblyai`
-- `whisper_model`: `string` - Whisper model for local transcription (for example `base`, `small`, `medium`, `large-v3`).
-- `whisper_device`: `string` - Device for local Whisper (`auto`, `cpu`, `cuda`).
-- `whisper_compute_type`: `string` - Compute type for local Whisper (`int8`, `float16`, etc.).
-- `assembly_ai_api_key`: `string` - Your Assembly AI API key. Get yours from [here](https://www.assemblyai.com/app/).
-- `tts_voice`: `string` - Voice for KittenTTS text-to-speech. Default is `Jasper`. Options: `Bella`, `Jasper`, `Luna`, `Bruno`, `Rosie`, `Hugo`, `Kiki`, `Leo`.
-- `font`: `string` - The font that will be used to generate images. This should be a `.ttf` file in the `fonts/` directory.
-- `imagemagick_path`: `string` - The path to the ImageMagick binary. This is used by MoviePy to manipulate images. Install ImageMagick from [here](https://imagemagick.org/script/download.php) and set the path to the `magick.exe` on Windows, or on Linux/MacOS the path to `convert` (usually /usr/bin/convert).
-- `script_sentence_length`: `number` - The number of sentences in the generated video script (default: `4`).
-- `post_bridge`: `object`:
-    - `enabled`: `boolean` - Enables Post Bridge cross-posting after successful YouTube uploads.
-    - `api_key`: `string` - Your Post Bridge API key. If empty, MPV2 falls back to `POST_BRIDGE_API_KEY`.
-    - `platforms`: `string[]` - Platforms to target. Supported values in v1 are `tiktok` and `instagram`.
-    - `account_ids`: `number[]` - Optional fixed Post Bridge account IDs to avoid account-selection prompts.
-    - `auto_crosspost`: `boolean` - If `true`, cross-post automatically after a successful YouTube upload. If `false`, interactive runs ask and cron runs skip.
+- `verbose`: `boolean` - If `true`, the application prints more information.
+- `firefox_profile`: `string` - Path to your Firefox profile so the app can reuse your logged-in social accounts.
+- `headless`: `boolean` - If `true`, the browser runs without a visible window.
+- `ollama_base_url`: `string` - Base URL of your local Ollama server. Default: `http://127.0.0.1:11434`.
+- `ollama_model`: `string` - Text model to use for generation. Recommended for this repo: `gemma4:e4b`. Local Ollama models such as `gemma4:26b` are supported, and Gemini models such as `gemini-2.5-flash` can also be used when needed. If empty, the app queries Ollama and lets you choose interactively.
+- `twitter_language`: `string` - Language used for tweet generation and posting.
+- `nanobanana2_api_base_url`: `string` - Nano Banana 2 API base URL. Default: `https://generativelanguage.googleapis.com/v1beta`.
+- `nanobanana2_api_key`: `string` - API key for Nano Banana 2. If empty, MPV2 falls back to `GEMINI_API_KEY`.
+- `nanobanana2_model`: `string` - Nano Banana 2 model name. Default: `gemini-3.1-flash-image-preview`.
+- `nanobanana2_aspect_ratio`: `string` - Aspect ratio for generated images. Default: `9:16`.
+- `threads`: `number` - Number of worker threads for operations such as video rendering.
+- `is_for_kids`: `boolean` - If `true`, uploaded videos are marked as made for kids.
+- `google_maps_scraper`: `string` - URL to the Google Maps scraper archive.
+- `zip_url`: `string` - URL to the ZIP archive containing music assets.
+- `email`: `object` - SMTP settings for email-based flows.
+- `google_maps_scraper_niche`: `string` - Business niche for Google Maps scraping.
+- `scraper_timeout`: `number` - Timeout for the Google Maps scraper.
+- `outreach_message_subject`: `string` - Outreach email subject. `{{COMPANY_NAME}}` is replaced automatically.
+- `outreach_message_body_file`: `string` - HTML file used as the outreach email body. `{{COMPANY_NAME}}` is replaced automatically.
+- `stt_provider`: `string` - Subtitle transcription provider. Supported values: `local_whisper`, `third_party_assemblyai`.
+- `whisper_model`: `string` - Whisper model for local transcription, for example `base`, `small`, `medium`, `large-v3`.
+- `whisper_device`: `string` - Whisper execution device: `auto`, `cpu`, or `cuda`.
+- `whisper_compute_type`: `string` - Whisper compute type such as `int8` or `float16`.
+- `assembly_ai_api_key`: `string` - AssemblyAI API key.
+- `tts_voice`: `string` - KittenTTS voice. Default: `Jasper`.
+- `font`: `string` - Font filename from the `fonts/` directory.
+- `imagemagick_path`: `string` - Path to the ImageMagick binary used by MoviePy.
+- `script_sentence_length`: `number` - Number of sentences in the generated video script. Default: `4`.
+- `news_pipeline`: `object` - Settings for tech-news collection and ranking.
+- `news_pipeline.enabled`: `boolean` - Enables the local tech-news pipeline.
+- `news_pipeline.max_article_age_hours`: `number` - Maximum age of candidate articles.
+- `news_pipeline.max_candidates_per_source`: `number` - Maximum parsed candidates kept per source.
+- `news_pipeline.max_selected_articles`: `number` - Final number of ranked articles kept after dedupe.
+- `news_pipeline.use_llm_scoring`: `boolean` - Enables LLM-assisted scoring in addition to heuristic scoring.
+- `news_pipeline.sources`: `string[]` - Supported sources: `theverge`, `zdnet_korea`, `bloter`.
+- `news_pipeline.priority_keywords`: `string[]` - Keywords that boost ranking for product launches and core technologies.
+- `news_pipeline.scoring_weights`: `object` - Weights for `public_interest`, `realism`, `llm`, and `keyword`.
+- `post_bridge`: `object` - Settings for cross-posting after uploads.
+- `post_bridge.enabled`: `boolean` - Enables Post Bridge integration.
+- `post_bridge.api_key`: `string` - Post Bridge API key. If empty, MPV2 falls back to `POST_BRIDGE_API_KEY`.
+- `post_bridge.platforms`: `string[]` - Supported values: `tiktok`, `instagram`.
+- `post_bridge.account_ids`: `number[]` - Optional fixed account IDs to avoid interactive account selection.
+- `post_bridge.auto_crosspost`: `boolean` - If `true`, cross-post automatically after a successful upload.
 
 ## Example
 
@@ -53,7 +56,7 @@ All your configurations will be in a file in the root directory, called `config.
   "firefox_profile": "",
   "headless": false,
   "ollama_base_url": "http://127.0.0.1:11434",
-  "ollama_model": "",
+  "ollama_model": "gemma4:e4b",
   "twitter_language": "English",
   "nanobanana2_api_base_url": "https://generativelanguage.googleapis.com/v1beta",
   "nanobanana2_api_key": "",
@@ -82,6 +85,33 @@ All your configurations will be in a file in the root directory, called `config.
   "font": "bold_font.ttf",
   "imagemagick_path": "Path to magick.exe or on linux/macOS just /usr/bin/convert",
   "script_sentence_length": 4,
+  "news_pipeline": {
+    "enabled": true,
+    "max_article_age_hours": 48,
+    "max_candidates_per_source": 6,
+    "max_selected_articles": 5,
+    "use_llm_scoring": true,
+    "sources": ["theverge", "zdnet_korea", "bloter"],
+    "priority_keywords": [
+      "samsung",
+      "galaxy",
+      "battery",
+      "display",
+      "udc",
+      "출시",
+      "공개",
+      "발표",
+      "반도체",
+      "디스플레이",
+      "배터리"
+    ],
+    "scoring_weights": {
+      "public_interest": 0.35,
+      "realism": 0.30,
+      "llm": 0.25,
+      "keyword": 0.10
+    }
+  },
   "post_bridge": {
     "enabled": false,
     "api_key": "",
@@ -94,7 +124,7 @@ All your configurations will be in a file in the root directory, called `config.
 
 ## Environment Variable Fallbacks
 
-- `GEMINI_API_KEY`: used when `nanobanana2_api_key` is empty.
+- `GEMINI_API_KEY`: used when `nanobanana2_api_key` is empty and also for Gemini text generation.
 - `POST_BRIDGE_API_KEY`: used when `post_bridge.api_key` is empty.
 
 Example:
@@ -104,4 +134,4 @@ export GEMINI_API_KEY="your_api_key_here"
 export POST_BRIDGE_API_KEY="your_post_bridge_api_key_here"
 ```
 
-See [PostBridge.md](./PostBridge.md) for the full Post Bridge setup and behavior details.
+See [PostBridge.md](./PostBridge.md) for full Post Bridge setup details.
