@@ -1,0 +1,28 @@
+{
+  "description": "Adaptive Shorts ranking weights derived from IT한 하루 YouTube performance reviews. Keep values modest to avoid overfitting small samples.",
+  "topic_buckets": {
+    "ranking_comparison": 3,
+    "smartphone_foldable": 2,
+    "ai_service_model": 1,
+    "pc_chip_device": 0,
+    "peripheral_wearable_audio": 0,
+    "hardware_device": 1,
+    "general_it": -1
+  },
+  "audience_fit": {
+    "consumer": 2,
+    "prosumer": 1,
+    "business_user": 0,
+    "developer": -4,
+    "researcher": -4
+  },
+  "angles": {
+    "ranking_comparison": 2,
+    "consumer_ai_model_shift": 1,
+    "launch_impact": 1,
+    "price_value_shift": 1,
+    "market_competition": 2,
+    "why_it_matters": 0,
+    "scope_risk": -4
+  }
+}

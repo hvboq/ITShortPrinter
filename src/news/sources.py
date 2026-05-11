@@ -24,6 +24,24 @@ PHASE_1_SOURCES = [
         "rss_url": "https://9to5mac.com/feed/",
     },
     {
+        "id": "zdnet_korea",
+        "name": "ZDNet Korea",
+        "tier": "news_secondary",
+        "rss_url": "https://feeds.feedburner.com/zdkorea",
+    },
+    {
+        "id": "bloter",
+        "name": "Bloter",
+        "tier": "news_secondary",
+        "rss_url": "https://cdn.bloter.net/rss/gns_allArticle.xml",
+    },
+    {
+        "id": "underkg",
+        "name": "UNDERkg",
+        "tier": "news_secondary",
+        "rss_url": "https://underkg.co.kr:44391/rss",
+    },
+    {
         "id": "google_news_query_launches_ko",
         "name": "Google News KR Launch Query",
         "tier": "search_aggregator",

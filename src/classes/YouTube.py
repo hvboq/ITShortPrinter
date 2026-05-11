@@ -96,6 +96,32 @@ class YouTube:
                 f"Firefox profile path does not exist or is not a directory: {self._fp_profile_path}"
             )
 
+        # Firefox profile locks protect a profile that may still be open in an
+        # active browser. Do not remove them by default: deleting an active lock
+        # can corrupt the logged-in upload profile. Operators may opt in to
+        # clearing known-stale locks after confirming Firefox is not running.
+        existing_locks = [
+            os.path.join(self._fp_profile_path, lock_name)
+            for lock_name in ("parent.lock", "lock", ".parentlock")
+            if os.path.exists(os.path.join(self._fp_profile_path, lock_name))
+        ]
+        if existing_locks:
+            if os.environ.get("MONEYPRINTER_CLEAR_FIREFOX_LOCKS") == "1":
+                for lock_path in existing_locks:
+                    try:
+                        os.remove(lock_path)
+                    except OSError as exc:
+                        raise RuntimeError(
+                            f"Could not remove Firefox profile lock {lock_path}: {exc}"
+                        ) from exc
+            else:
+                raise RuntimeError(
+                    "Firefox profile lock files exist; close Firefox/Selenium or set "
+                    "MONEYPRINTER_CLEAR_FIREFOX_LOCKS=1 only after confirming the "
+                    f"profile is not active: {existing_locks}"
+                )
+
+        self.options.page_load_strategy = "eager"
         firefox_binary = "/opt/firefox-latest/firefox"
         if os.path.exists(firefox_binary):
             self.options.binary_location = firefox_binary
@@ -197,6 +223,113 @@ class YouTube:
         """Normalize title text used for upload metadata and the persistent top overlay."""
         return clean_metadata_title(title)
 
+    def _extract_json_object(self, text: str) -> dict:
+        """Best-effort extraction for local LLM JSON review output."""
+        raw = str(text or "").strip()
+        if not raw:
+            return {}
+        raw = re.sub(r"^```(?:json)?\s*|\s*```$", "", raw, flags=re.IGNORECASE | re.MULTILINE).strip()
+        candidates = [raw]
+        match = re.search(r"\{.*\}", raw, flags=re.DOTALL)
+        if match:
+            candidates.append(match.group(0))
+        for candidate in candidates:
+            try:
+                parsed = json.loads(candidate)
+                return parsed if isinstance(parsed, dict) else {}
+            except json.JSONDecodeError:
+                continue
+        return {}
+
+    def _persist_script_review(self, original_script: str, review_response: str, review_data: dict, final_script: str) -> None:
+        """Save post-generation script review artifacts for daily quality review."""
+        try:
+            review_dir = os.path.join(ROOT_DIR, ".mp", "script_reviews")
+            os.makedirs(review_dir, exist_ok=True)
+            stamp = datetime.utcnow().strftime("%Y%m%dT%H%M%SZ")
+            safe_subject = re.sub(r"[^0-9A-Za-z가-힣_-]+", "_", str(getattr(self, "subject", "shorts")))[:48]
+            path = os.path.join(review_dir, f"{stamp}_{safe_subject}_{uuid4().hex[:8]}.json")
+            payload = {
+                "created_at_utc": stamp,
+                "model": get_script_review_model(),
+                "subject": getattr(self, "subject", ""),
+                "article_url": (self.news_article or {}).get("url") if self.news_article else "",
+                "article_title": (self.news_article or {}).get("title") if self.news_article else "",
+                "original_script": original_script,
+                "review_response": review_response,
+                "review_data": review_data,
+                "final_script": final_script,
+            }
+            with open(path, "w", encoding="utf-8") as file:
+                json.dump(payload, file, ensure_ascii=False, indent=2)
+            if get_verbose():
+                print(colored(f"=> Saved script review: {path}", "green"))
+        except Exception as exc:
+            if get_verbose():
+                warning(f"Failed to save script review artifact: {exc}")
+
+    def review_script_with_local_ollama(self, script: str) -> str:
+        """Review a generated Shorts script once with local Ollama and return the approved/revised script."""
+        if not get_script_review_enabled():
+            return script
+
+        article_context = ""
+        if self.news_article:
+            article_context = f"""
+기사 제목: {self.news_article.get('title', '')}
+기사 요약: {self.news_article.get('excerpt') or self.news_article.get('summary') or ''}
+출처명: {self.news_article.get('source_name') or self.news_article.get('source') or ''}
+이벤트 유형: {self.news_article.get('event_type', '')}
+""".strip()
+
+        review_prompt = f"""
+너는 한국어 IT 뉴스 쇼츠 채널의 대본 품질 검수자다.
+아래 대본을 업로드 전 한 번 검토하고, 필요하면 최소한으로 수정한 최종 나레이션 대본을 제시해.
+
+검수 기준:
+- 첫 문장이 1~3초 안에 궁금증을 만든다.
+- 무엇이 발표/출시/변경되었는지 바로 이해된다.
+- 왜 중요한지 일반 IT 관심층 관점에서 설명된다.
+- 한국어가 자연스럽고 말로 읽기 좋다.
+- 과장, 허위 단정, 루머의 사실화, 출처/URL/도메인 언급이 없다.
+- AI/소프트웨어/개발 이슈 중심으로 새지 않고, 소비자 기기/하드웨어 관점에 맞다.
+- 마지막은 자연스러운 핵심 정리 또는 구독 CTA로 끝난다.
+- 불필요한 라벨, 제목, 마크다운 없이 실제 나레이션 문장만 유지한다.
+
+{article_context}
+
+검토할 대본:
+{script}
+
+반드시 아래 JSON만 반환해. 코드블록 금지.
+{{
+  "approved": true 또는 false,
+  "score": 0부터 100까지 정수,
+  "issues": ["핵심 문제 1", "핵심 문제 2"],
+  "revised_script": "최종 나레이션 대본. 문제가 없으면 원문을 그대로 넣기"
+}}
+""".strip()
+
+        try:
+            review_response = self.generate_response(review_prompt, model_name=get_script_review_model())
+        except Exception as exc:
+            if get_verbose():
+                warning(f"Script review failed; using original script: {exc}")
+            return script
+
+        review_data = self._extract_json_object(review_response)
+        revised = review_data.get("revised_script", "") if review_data else ""
+        final_script = self._clean_generated_korean_text(re.sub(r"\*", "", revised or script))
+        if not final_script:
+            final_script = script
+        self._persist_script_review(script, review_response, review_data, final_script)
+
+        score = review_data.get("score") if review_data else None
+        approved = review_data.get("approved") if review_data else None
+        if get_verbose():
+            print(colored(f"=> Script review completed with {get_script_review_model()} (approved={approved}, score={score})", "green"))
+        return final_script
+
     def generate_script(self) -> str:
         """
         Generate a script for a video, depending on the subject of the video, the number of paragraphs, and the AI model.
@@ -239,6 +372,8 @@ class YouTube:
         if not completion:
             error("The generated script is empty.")
             return
+
+        completion = self.review_script_with_local_ollama(completion)
 
         if len(completion) > 5000:
             if get_verbose():

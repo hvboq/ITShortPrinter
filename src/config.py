@@ -147,6 +147,37 @@ def get_ollama_model() -> str:
     with open(os.path.join(ROOT_DIR, "config.json"), "r") as file:
         return json.load(file).get("ollama_model", "gemma4:e4b")
 
+
+def get_script_review_enabled() -> bool:
+    """
+    Gets whether Shorts scripts should be reviewed once by local Ollama after initial generation.
+
+    Returns:
+        enabled (bool): True when script review is enabled.
+    """
+    env_value = get_env_var("SCRIPT_REVIEW_ENABLED", "").strip().lower()
+    if env_value:
+        return env_value not in ("0", "false", "no", "off")
+
+    with open(os.path.join(ROOT_DIR, "config.json"), "r") as file:
+        return bool(json.load(file).get("script_review_enabled", True))
+
+
+def get_script_review_model() -> str:
+    """
+    Gets the Ollama model used for the post-generation script review.
+
+    Returns:
+        model (str): Review model name, defaulting to the normal Ollama model.
+    """
+    env_value = get_env_var("SCRIPT_REVIEW_MODEL", "").strip()
+    if env_value:
+        return env_value
+
+    with open(os.path.join(ROOT_DIR, "config.json"), "r") as file:
+        data = json.load(file)
+    return data.get("script_review_model") or data.get("ollama_model", "gemma4:e4b")
+
 def get_twitter_language() -> str:
     """
     Gets the Twitter language from the config file.

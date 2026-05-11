@@ -15,6 +15,10 @@ Pillow>=10.0.0
 yagmail
 assemblyai
 faster-whisper
+google-api-python-client
+google-auth
+google-auth-oauthlib
+google-auth-httplib2
 srt_equalizer
 undetected_chromedriver
 platformdirs

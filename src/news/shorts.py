@@ -4,6 +4,7 @@ from __future__ import annotations
 def format_article_for_prompt(article: dict) -> str:
     brands = ", ".join(article.get("brands", [])) or "unknown"
     technologies = ", ".join(article.get("technologies", [])) or "unknown"
+    angle = article.get("shorts_angle") or {}
     return "\n".join(
         [
             f"Title: {article.get('title', '')}",
@@ -12,6 +13,13 @@ def format_article_for_prompt(article: dict) -> str:
             f"Brands: {brands}",
             f"Technologies: {technologies}",
             f"Event Type: {article.get('event_type', '')}",
+            f"Audience Fit: {article.get('audience_fit', '')}",
+            f"Strategic Importance Score: {article.get('strategic_importance_score', '')}",
+            f"Topic Bucket: {article.get('topic_bucket', '')}",
+            f"Angle Type: {angle.get('angle_type', '')}",
+            f"Hook Type: {angle.get('hook_type', '')}",
+            f"Viewer Payoff: {angle.get('viewer_payoff', '')}",
+            f"Angle Rationale: {angle.get('rationale', '')}",
             f"Confidence: {article.get('confidence', '')}",
             f"Shorts Score: {article.get('shorts_score', '')}",
         ]
@@ -29,10 +37,13 @@ def build_shorts_script_prompt(article: dict, language: str = "Korean", sentence
 - 항상 최신 IT/기기/기술 소식을 빠르게 요약해서 전달한다.
 - 사용자는 트렌드를 파악하고 순수한 호기심을 채우기 위해 본다.
 - 단순 스펙 나열보다 왜 중요한지, 무엇이 바뀌는지를 설명한다.
+- 입력의 Angle Type, Hook Type, Viewer Payoff를 반영해서 첫 3초 훅과 전체 관점을 잡는다.
 
 규칙:
 - 반드시 한국어로만 작성한다. 입력 뉴스 제목/요약이 영어여도 자연스러운 한국어 나레이션으로 번역·재구성한다.
 - 최신 IT 뉴스 브리핑 톤으로 작성한다.
+- 첫 문장은 뉴스 제목 반복이 아니라 시청자가 바로 궁금해할 변화/경쟁/가격/체감 포인트로 시작한다.
+- 중간에는 “그래서 왜 중요하냐면”에 해당하는 맥락을 반드시 한 문장 포함한다.
 - 저장 유도 금지.
 - 시리즈화 금지.
 - 마지막 CTA는 구독 유도만 허용한다.

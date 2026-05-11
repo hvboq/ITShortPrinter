@@ -3,7 +3,15 @@ config.json
 .env
 .env.*
 !.env.example
+secrets/
+*.client_secret.json
+*oauth_token*.json
 .mp/
+reports/
+preserved/
+data/*
+!data/.gitkeep
+!data/topic_performance_weights.json
 venv/
 Songs/
 google-maps-scraper-0.9.7/

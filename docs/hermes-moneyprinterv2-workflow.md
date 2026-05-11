@@ -80,6 +80,9 @@ Primary files:
 
 1. `generate_topic()`
 2. `generate_script()`
+   - After the first script draft is generated, run one local Ollama review pass with `gemma4:e4b` before metadata/TTS/video generation.
+   - Config keys: `script_review_enabled=true`, `script_review_model="gemma4:e4b"`.
+   - Save review artifacts under `.mp/script_reviews/` for daily batch quality review.
 3. `generate_metadata()`
 4. `generate_prompts()`
 5. `generate_image(prompt)` for each prompt

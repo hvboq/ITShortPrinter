@@ -1,10 +1,14 @@
 from __future__ import annotations
 
 import json
+import os
 import re
 import time
 
+from pathlib import Path
+
 from classes.YouTube import YouTube
+from news.archive import mark_shorts_status
 from project_paths import project_root, youtube_firefox_profile
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
@@ -13,10 +17,12 @@ from selenium.webdriver.support import expected_conditions as EC
 
 ROOT = project_root()
 PROFILE = youtube_firefox_profile()
-MANIFEST = ROOT / '.mp' / 'batch_top5' / 'manifest.json'
-UPLOAD_MANIFEST = ROOT / '.mp' / 'batch_top5' / 'upload_manifest_public.json'
-SCREEN_DIR = ROOT / '.mp' / 'batch_top5' / 'upload_screens'
+MANIFEST = Path(os.environ.get('UPLOAD_SOURCE_MANIFEST', str(ROOT / '.mp' / 'batch_top5' / 'manifest.json')))
+UPLOAD_MANIFEST = Path(os.environ.get('UPLOAD_OUTPUT_MANIFEST', str(MANIFEST.parent / 'upload_manifest_public.json')))
+UPLOAD_HISTORY = ROOT / 'data' / 'upload_history.json'
+SCREEN_DIR = Path(os.environ.get('UPLOAD_SCREEN_DIR', str(MANIFEST.parent / 'upload_screens')))
 SCREEN_DIR.mkdir(parents=True, exist_ok=True)
+UPLOAD_HISTORY.parent.mkdir(parents=True, exist_ok=True)
 
 
 def clean_title(s: str) -> str:
@@ -109,10 +115,32 @@ def select_public(driver):
     return False
 
 
+def append_upload_history(entry: dict):
+    try:
+        history = json.loads(UPLOAD_HISTORY.read_text(encoding='utf-8')) if UPLOAD_HISTORY.exists() else []
+        if not isinstance(history, list):
+            history = []
+    except Exception:
+        history = []
+    key = entry.get('article_url') or entry.get('uploaded_url') or entry.get('title')
+    existing = {
+        item.get('article_url') or item.get('uploaded_url') or item.get('title')
+        for item in history
+        if isinstance(item, dict)
+    }
+    if key not in existing:
+        history.append(entry)
+        UPLOAD_HISTORY.write_text(json.dumps(history, ensure_ascii=False, indent=2), encoding='utf-8')
+
+
 print('UPLOAD_TOP5_PUBLIC_START', flush=True)
+print('UPLOAD_SOURCE_MANIFEST=', str(MANIFEST), flush=True)
 data = json.loads(MANIFEST.read_text(encoding='utf-8'))
-start_rank = int(__import__('os').environ.get('START_RANK', '1'))
-end_rank = int(__import__('os').environ.get('END_RANK', '999'))
+for idx, item in enumerate(data, 1):
+    if 'rank' not in item:
+        item['rank'] = item.get('batch_index') or idx
+start_rank = int(os.environ.get('START_RANK', '1'))
+end_rank = int(os.environ.get('END_RANK', '999'))
 data = [item for item in data if start_rank <= int(item.get('rank', 0)) <= end_rank]
 print('UPLOAD_RANK_RANGE=', start_rank, end_rank, 'COUNT=', len(data), flush=True)
 y = YouTube('it-han-haru', 'IT한 하루', PROFILE, 'Korean IT News', 'Korean')
@@ -157,7 +185,25 @@ try:
         time.sleep(1)
 
         for step in range(3):
-            wait_click(d, By.ID, 'next-button', timeout=180)
+            try:
+                wait_click(d, By.ID, 'next-button', timeout=600)
+            except Exception:
+                debug_shot = str(SCREEN_DIR / f'upload_rank{rank}_next_timeout_step{step+1}.png')
+                try:
+                    d.save_screenshot(debug_shot)
+                    body_debug = d.find_element(By.TAG_NAME, 'body').text.replace('\n', ' | ')[:3000]
+                    print(f'UPLOAD_{rank}_NEXT_TIMEOUT_SCREEN={debug_shot}', flush=True)
+                    print(f'UPLOAD_{rank}_NEXT_TIMEOUT_BODY={body_debug}', flush=True)
+                    buttons_debug = []
+                    for b in d.find_elements(By.CSS_SELECTOR, 'ytcp-button, tp-yt-paper-button, button')[:40]:
+                        try:
+                            buttons_debug.append((b.get_attribute('id'), b.text, b.get_attribute('aria-disabled'), b.get_attribute('disabled'), b.is_displayed()))
+                        except Exception:
+                            pass
+                    print(f'UPLOAD_{rank}_BUTTONS_DEBUG={buttons_debug}', flush=True)
+                except Exception as debug_exc:
+                    print(f'UPLOAD_{rank}_DEBUG_FAILED={debug_exc}', flush=True)
+                raise
             print(f'UPLOAD_{rank}_NEXT_{step+1}', flush=True)
             time.sleep(3)
 
@@ -199,9 +245,24 @@ try:
                 if href:
                     url = href
                     break
-        result = {'rank': rank, 'video_path': video_path, 'title': title, 'description': desc, 'visibility': 'public', 'uploaded_url': url, 'screenshot': screenshot}
+        result = {
+            'rank': rank,
+            'video_path': video_path,
+            'title': title,
+            'description': desc,
+            'article_title': item.get('article_title'),
+            'article_url': item.get('article_url'),
+            'article_id': item.get('article_id'),
+            'source': item.get('source'),
+            'visibility': 'public',
+            'uploaded_url': url,
+            'screenshot': screenshot,
+            'uploaded_at_unix': time.time(),
+        }
         results.append(result)
         UPLOAD_MANIFEST.write_text(json.dumps(results, ensure_ascii=False, indent=2), encoding='utf-8')
+        mark_shorts_status(result, 'uploaded', rank=rank, video_path=video_path, uploaded_url=url)
+        append_upload_history(result)
         print(f'UPLOAD_{rank}_DONE|url={url}', flush=True)
         time.sleep(4)
 finally:
