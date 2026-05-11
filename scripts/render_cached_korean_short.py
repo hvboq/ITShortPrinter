@@ -57,13 +57,9 @@ def main() -> int:
     print(article.url)
     print(f"Published date: {published_date}")
 
-    youtube = YouTube(
-        account_uuid="local-news-short",
-        account_nickname="Local News Short",
-        fp_profile_path="",
+    youtube = YouTube.for_local_generation(
         niche="IT device news",
         language="Korean",
-        init_browser=False,
     )
     youtube.subject = article.title
     youtube.script = (
@@ -80,12 +76,13 @@ def main() -> int:
         ),
     }
 
-    youtube.create_contextual_thumbnail(article.title)
-    if not youtube.images and article.image_url:
-        youtube.download_image(article.image_url)
+    if article.image_url:
+        try:
+            youtube.download_image(article.image_url)
+        except Exception as exc:
+            print(f"Could not download article image, using generated fallback: {exc}")
     if not youtube.images:
-        print("No visual image could be prepared.")
-        return 1
+        youtube.create_contextual_thumbnail(article.title)
 
     tts = TTS()
     youtube.generate_script_to_speech(tts)

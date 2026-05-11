@@ -17,7 +17,6 @@ from config import get_ollama_model
 from llm_provider import select_model
 from news_pipeline import NewsArticle
 from news_pipeline import NewsPipeline
-from news_pipeline import article_to_prompt_context
 
 
 def parse_args() -> argparse.Namespace:
@@ -117,21 +116,12 @@ def main() -> int:
     from classes.Tts import TTS
     from classes.YouTube import YouTube
 
-    youtube = YouTube(
-        account_uuid="local-news-short",
-        account_nickname="Local News Short",
-        fp_profile_path="",
+    youtube = YouTube.for_local_generation(
         niche="IT device news",
         language=args.language,
-        init_browser=False,
     )
     tts = TTS()
-    video_path = youtube.generate_video_from_news(
-        news_context=article_to_prompt_context(article),
-        subject=article.title,
-        tts_instance=tts,
-        article_image_url=article.image_url,
-    )
+    video_path = youtube.generate_video_from_news(tts, article)
 
     mark_news_processed(article.url)
     print(f"Generated news short: {video_path}")
