@@ -1,4 +1,8 @@
-from termcolor import colored
+try:
+    from termcolor import colored
+except ModuleNotFoundError:
+    def colored(text, *_args, **_kwargs):
+        return text
 
 def error(message: str, show_emoji: bool = True) -> None:
     """

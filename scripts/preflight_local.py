@@ -4,7 +4,10 @@ import os
 import sys
 from typing import Tuple
 
-import requests
+try:
+    import requests
+except ModuleNotFoundError:
+    requests = None
 
 
 ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -24,6 +27,9 @@ def fail(msg: str) -> None:
 
 
 def check_url(url: str, timeout: int = 3) -> Tuple[bool, str]:
+    if requests is None:
+        return False, "requests is not installed"
+
     try:
         response = requests.get(url, timeout=timeout)
         return True, f"HTTP {response.status_code}"

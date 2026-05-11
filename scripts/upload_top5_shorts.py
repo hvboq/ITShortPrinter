@@ -3,16 +3,16 @@ from __future__ import annotations
 import json
 import re
 import time
-from pathlib import Path
 
 from classes.YouTube import YouTube
+from project_paths import project_root, youtube_firefox_profile
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 
-ROOT = Path('/opt/data/MoneyPrinterV2')
-PROFILE = '/opt/data/firefox-profiles/youtube'
+ROOT = project_root()
+PROFILE = youtube_firefox_profile()
 MANIFEST = ROOT / '.mp' / 'batch_top5' / 'manifest.json'
 UPLOAD_MANIFEST = ROOT / '.mp' / 'batch_top5' / 'upload_manifest.json'
 SCREEN_DIR = ROOT / '.mp' / 'batch_top5' / 'upload_screens'

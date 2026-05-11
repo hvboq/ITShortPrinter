@@ -35,6 +35,37 @@
   "font": "bold_font.ttf",
   "imagemagick_path": "Path to magick.exe or on linux/macOS just /usr/bin/convert",
   "script_sentence_length": 4,
+  "news_pipeline": {
+    "enabled": true,
+    "max_article_age_hours": 48,
+    "max_candidates_per_source": 6,
+    "max_selected_articles": 5,
+    "use_llm_scoring": true,
+    "sources": [
+      "theverge",
+      "zdnet_korea",
+      "bloter"
+    ],
+    "priority_keywords": [
+      "samsung",
+      "galaxy",
+      "battery",
+      "display",
+      "udc",
+      "출시",
+      "공개",
+      "발표",
+      "반도체",
+      "디스플레이",
+      "배터리"
+    ],
+    "scoring_weights": {
+      "public_interest": 0.35,
+      "realism": 0.30,
+      "llm": 0.25,
+      "keyword": 0.10
+    }
+  },
   "post_bridge": {
     "enabled": false,
     "api_key": "",

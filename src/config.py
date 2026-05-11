@@ -1,5 +1,4 @@
 import os
-import sys
 import json
 
 try:
@@ -8,7 +7,18 @@ except ModuleNotFoundError:
     def colored(text, *_args, **_kwargs):
         return text
 
-ROOT_DIR = os.path.dirname(sys.path[0])
+ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+
+def get_config_path() -> str:
+    """Return the active config path, respecting tests that patch ROOT_DIR."""
+    return os.path.join(ROOT_DIR, "config.json")
+
+
+def load_config() -> dict:
+    """Load the project config file."""
+    with open(get_config_path(), "r", encoding="utf-8") as file:
+        return json.load(file)
 
 
 def load_env_file(path: str | None = None, override: bool = False) -> None:
@@ -428,12 +438,101 @@ def get_script_sentence_length() -> int:
     Returns:
         length (int): Length of script's sentence
     """
-    with open(os.path.join(ROOT_DIR, "config.json"), "r") as file:
-        config_json = json.load(file)
-        if (config_json.get("script_sentence_length") is not None):
-            return config_json["script_sentence_length"]
-        else:
-            return 4
+    config_json = load_config()
+    if config_json.get("script_sentence_length") is not None:
+        return config_json["script_sentence_length"]
+    return 4
+
+def get_news_pipeline_config() -> dict:
+    """
+    Gets the tech-news collection/ranking pipeline configuration.
+
+    Returns:
+        config (dict): Sanitized news pipeline configuration
+    """
+    defaults = {
+        "enabled": True,
+        "max_article_age_hours": 48,
+        "max_candidates_per_source": 6,
+        "max_selected_articles": 5,
+        "use_llm_scoring": True,
+        "sources": ["theverge", "zdnet_korea", "bloter"],
+        "priority_keywords": [
+            "samsung",
+            "galaxy",
+            "battery",
+            "display",
+            "udc",
+            "출시",
+            "공개",
+            "발표",
+            "반도체",
+            "디스플레이",
+            "배터리",
+        ],
+        "scoring_weights": {
+            "public_interest": 0.35,
+            "realism": 0.30,
+            "llm": 0.25,
+            "keyword": 0.10,
+        },
+    }
+    supported_sources = {"theverge", "zdnet_korea", "bloter"}
+
+    config_json = load_config()
+
+    raw_config = config_json.get("news_pipeline", {})
+    if not isinstance(raw_config, dict):
+        raw_config = {}
+
+    raw_sources = raw_config.get("sources", defaults["sources"])
+    sources = []
+    if isinstance(raw_sources, list):
+        for source in raw_sources:
+            normalized_source = str(source).strip()
+            if (
+                normalized_source in supported_sources
+                and normalized_source not in sources
+            ):
+                sources.append(normalized_source)
+    if not sources:
+        sources = defaults["sources"].copy()
+
+    raw_weights = raw_config.get("scoring_weights", {})
+    if not isinstance(raw_weights, dict):
+        raw_weights = {}
+    scoring_weights = defaults["scoring_weights"].copy()
+    for key in scoring_weights:
+        try:
+            scoring_weights[key] = float(raw_weights.get(key, scoring_weights[key]))
+        except (TypeError, ValueError):
+            pass
+
+    def read_int(key: str) -> int:
+        try:
+            return max(1, int(raw_config.get(key, defaults[key])))
+        except (TypeError, ValueError):
+            return defaults[key]
+
+    raw_priority_keywords = raw_config.get(
+        "priority_keywords",
+        defaults["priority_keywords"],
+    )
+    if not isinstance(raw_priority_keywords, list):
+        raw_priority_keywords = defaults["priority_keywords"].copy()
+
+    return {
+        "enabled": bool(raw_config.get("enabled", defaults["enabled"])),
+        "max_article_age_hours": read_int("max_article_age_hours"),
+        "max_candidates_per_source": read_int("max_candidates_per_source"),
+        "max_selected_articles": read_int("max_selected_articles"),
+        "use_llm_scoring": bool(
+            raw_config.get("use_llm_scoring", defaults["use_llm_scoring"])
+        ),
+        "sources": sources,
+        "priority_keywords": raw_priority_keywords,
+        "scoring_weights": scoring_weights,
+    }
 
 def get_post_bridge_config() -> dict:
     """

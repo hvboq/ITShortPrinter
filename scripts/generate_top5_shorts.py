@@ -11,8 +11,9 @@ from news.collector import collect_ranked_news
 from classes.YouTube import YouTube
 from classes.Tts import TTS
 from config import get_image_provider, get_nanobanana2_model, get_tts_provider, get_env_var
+from project_paths import project_root
 
-ROOT = Path('/opt/data/MoneyPrinterV2')
+ROOT = project_root()
 OUT_DIR = ROOT / '.mp' / 'batch_top5'
 OUT_DIR.mkdir(parents=True, exist_ok=True)
 MANIFEST = OUT_DIR / 'manifest.json'
