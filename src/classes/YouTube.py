@@ -18,12 +18,9 @@ from .youtube_content import clean_metadata_title
 from .youtube_content import normalize_news_article
 from . import youtube_visuals
 from . import youtube_subtitles
+from . import youtube_composer
 from typing import List
-from moviepy.editor import *
-from termcolor import colored
 from selenium import webdriver
-from moviepy.video.fx.all import crop
-from moviepy.config import change_settings
 from selenium.webdriver.common.by import By
 from selenium.webdriver.firefox.service import Service
 from selenium.webdriver.firefox.options import Options
@@ -33,9 +30,6 @@ from PIL import Image
 
 if not hasattr(Image, "ANTIALIAS"):
     Image.ANTIALIAS = Image.Resampling.LANCZOS
-
-# Set ImageMagick Path
-change_settings({"IMAGEMAGICK_BINARY": get_imagemagick_path()})
 
 
 class YouTube:
@@ -770,61 +764,15 @@ class YouTube:
             path (str): The path to the generated MP4 File.
         """
         combined_image_path = os.path.join(ROOT_DIR, ".mp", str(uuid4()) + ".mp4")
-        threads = get_threads()
-        tts_clip = AudioFileClip(self.tts_path)
-        max_duration = tts_clip.duration
         if not self.images:
             raise ValueError("Cannot combine video because no images were generated.")
-        req_dur = max_duration / len(self.images)
+        duration = youtube_composer.audio_duration(self.tts_path)
 
-        print(colored("[+] Combining images...", "blue"))
-
-        clips = []
-        tot_dur = 0
-        # Add downloaded clips over and over until the duration of the audio (max_duration) has been reached
-        while tot_dur < max_duration:
-            for image_path in self.images:
-                clip = ImageClip(image_path)
-                clip.duration = req_dur
-                clip = clip.set_fps(30)
-
-                # Not all images are same size,
-                # so we need to resize them
-                if round((clip.w / clip.h), 4) < 0.5625:
-                    if get_verbose():
-                        info(f" => Resizing Image: {image_path} to 1080x1920")
-                    clip = crop(
-                        clip,
-                        width=clip.w,
-                        height=round(clip.w / 0.5625),
-                        x_center=clip.w / 2,
-                        y_center=clip.h / 2,
-                    )
-                else:
-                    if get_verbose():
-                        info(f" => Resizing Image: {image_path} to 1920x1080")
-                    clip = crop(
-                        clip,
-                        width=round(0.5625 * clip.h),
-                        height=clip.h,
-                        x_center=clip.w / 2,
-                        y_center=clip.h / 2,
-                    )
-                clip = clip.resize((1080, 1920))
-
-                # FX (Fade In)
-                # clip = clip.fadein(2)
-
-                clips.append(clip)
-                tot_dur += clip.duration
-
-        final_clip = concatenate_videoclips(clips)
-        final_clip = final_clip.set_fps(30)
-        random_song = choose_random_song()
+        info("[+] Combining images...")
 
         subtitles = []
         try:
-            subtitles_path = self.generate_safe_subtitles(self.tts_path, tts_clip.duration)
+            subtitles_path = self.generate_safe_subtitles(self.tts_path, duration)
             try:
                 equalize_subtitles(subtitles_path, 10)
             except Exception as e:
@@ -834,20 +782,18 @@ class YouTube:
         except Exception as e:
             warning(f"Failed to create subtitles, continuing without subtitles: {e}")
 
-        random_song_clip = AudioFileClip(random_song).set_fps(44100)
-
-        # Turn down volume
-        random_song_clip = random_song_clip.fx(afx.volumex, 0.1)
-        comp_audio = CompositeAudioClip([tts_clip.set_fps(44100), random_song_clip])
-
-        final_clip = final_clip.set_audio(comp_audio)
-        final_clip = final_clip.set_duration(tts_clip.duration)
-
-        title_overlay = self._create_title_overlay_clip(tts_clip.duration)
-        overlay_clips = [final_clip, title_overlay, *subtitles]
-        final_clip = CompositeVideoClip(overlay_clips)
-
-        final_clip.write_videofile(combined_image_path, threads=threads)
+        title_overlay = self._create_title_overlay_clip(duration)
+        youtube_composer.compose_short_video(
+            image_paths=self.images,
+            tts_path=self.tts_path,
+            background_music_path=choose_random_song(),
+            output_path=combined_image_path,
+            subtitle_clips=subtitles,
+            title_overlay_clip=title_overlay,
+            threads=get_threads(),
+            verbose=get_verbose(),
+            info_callback=info,
+        )
 
         success(f'Wrote Video to "{combined_image_path}"')
 
