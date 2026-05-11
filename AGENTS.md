@@ -8,10 +8,10 @@
 - `docs/` contains feature documentation; `assets/` and `fonts/` contain static resources.
 
 ## Build, Test, and Development Commands
-- `bash scripts/setup_local.sh`: bootstrap local development (creates `venv`, installs deps, seeds `config.json`, runs preflight).
-- `source venv/bin/activate && pip install -r requirements.txt`: manual dependency install/update.
-- `python3 scripts/preflight_local.py`: validate local provider/config readiness before running tasks.
-- `python3 src/main.py`: start the CLI app.
+- `bash scripts/setup_local.sh`: bootstrap local development (creates a Python 3.12 `venv`, installs deps, seeds `config.json`, runs preflight).
+- `python3.12 -m venv venv && source venv/bin/activate && python -m pip install -r requirements.txt`: manual dependency install/update.
+- `source venv/bin/activate && python scripts/preflight_local.py`: validate local provider/config readiness before running tasks.
+- `source venv/bin/activate && python src/main.py`: start the CLI app.
 - `bash scripts/upload_video.sh`: run direct script-based upload flow from repo root.
 
 ## Coding Style & Naming Conventions

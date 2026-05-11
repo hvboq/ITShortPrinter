@@ -6,15 +6,97 @@ cd "$ROOT_DIR"
 
 echo "[setup] Root: $ROOT_DIR"
 
+REQUIRED_PYTHON_VERSION="${REQUIRED_PYTHON_VERSION:-$(tr -d '[:space:]' < .python-version 2>/dev/null || echo 3.12)}"
+VENV_DIR="${VENV_DIR:-venv}"
+VENV_PATH="${ROOT_DIR}/${VENV_DIR}"
+PYTHON_BIN="${VENV_PATH}/bin/python"
+
+python_minor_version() {
+  "$1" -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")'
+}
+
+resolve_python_candidate() {
+  local candidate="$1"
+  local resolved=""
+
+  if [[ -x "$candidate" ]]; then
+    resolved="$candidate"
+  else
+    resolved="$(command -v "$candidate" 2>/dev/null || true)"
+  fi
+
+  if [[ -n "$resolved" && "$(python_minor_version "$resolved" 2>/dev/null || true)" == "$REQUIRED_PYTHON_VERSION" ]]; then
+    echo "$resolved"
+    return 0
+  fi
+
+  return 1
+}
+
+find_required_python() {
+  local candidates=()
+
+  if [[ -n "${PYTHON:-}" ]]; then
+    candidates+=("$PYTHON")
+  fi
+
+  candidates+=("python${REQUIRED_PYTHON_VERSION}" "python3")
+
+  if command -v pyenv >/dev/null 2>&1; then
+    local pyenv_python
+    pyenv_python="$(PYENV_VERSION="$REQUIRED_PYTHON_VERSION" pyenv which python 2>/dev/null || true)"
+    if [[ -n "$pyenv_python" ]]; then
+      candidates+=("$pyenv_python")
+    fi
+  fi
+
+  local candidate
+  for candidate in "${candidates[@]}"; do
+    resolve_python_candidate "$candidate" && return 0
+  done
+
+  return 1
+}
+
+ensure_compatible_venv() {
+  if [[ ! -x "$PYTHON_BIN" ]]; then
+    return 0
+  fi
+
+  local existing_version
+  existing_version="$(python_minor_version "$PYTHON_BIN" 2>/dev/null || true)"
+  if [[ "$existing_version" == "$REQUIRED_PYTHON_VERSION" ]]; then
+    return 0
+  fi
+
+  if [[ "${RECREATE_VENV:-0}" == "1" ]]; then
+    echo "[setup] Existing ${VENV_DIR}/ uses Python ${existing_version:-unknown}; recreating for ${REQUIRED_PYTHON_VERSION}."
+    rm -rf "$VENV_PATH"
+    return 0
+  fi
+
+  echo "[setup] ERROR: Existing ${VENV_DIR}/ uses Python ${existing_version:-unknown}, but this project requires Python ${REQUIRED_PYTHON_VERSION}."
+  echo "[setup] Run with RECREATE_VENV=1 to rebuild it, or set VENV_DIR to a different path."
+  exit 1
+}
+
 if [[ ! -f "config.json" ]]; then
   cp config.example.json config.json
   echo "[setup] Created config.json from config.example.json"
 fi
 
-PYTHON_BIN="${ROOT_DIR}/venv/bin/python"
+ensure_compatible_venv
+
 if [[ ! -x "$PYTHON_BIN" ]]; then
-  python3 -m venv venv
-  echo "[setup] Created virtual environment at venv/"
+  BASE_PYTHON="$(find_required_python || true)"
+  if [[ -z "$BASE_PYTHON" ]]; then
+    echo "[setup] ERROR: Python ${REQUIRED_PYTHON_VERSION} was not found."
+    echo "[setup] Install Python ${REQUIRED_PYTHON_VERSION} first, or set PYTHON=/path/to/python${REQUIRED_PYTHON_VERSION}."
+    exit 1
+  fi
+
+  "$BASE_PYTHON" -m venv "$VENV_DIR"
+  echo "[setup] Created virtual environment at ${VENV_DIR}/ with $("$PYTHON_BIN" --version)"
 fi
 
 "$PYTHON_BIN" -m ensurepip --upgrade >/dev/null 2>&1 || true
@@ -116,4 +198,4 @@ echo "[setup] Running local preflight..."
 
 echo ""
 echo "[setup] Done."
-echo "[setup] Start app with: source venv/bin/activate && python3 src/main.py"
+echo "[setup] Start app with: source ${VENV_DIR}/bin/activate && python src/main.py"

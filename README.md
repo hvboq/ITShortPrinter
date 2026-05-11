@@ -47,14 +47,24 @@ If you would like to submit your own version/fork of MoneyPrinter, please open a
 > ⚠️ If you are planning to reach out to scraped businesses per E-Mail, please first install the [Go Programming Language](https://golang.org/).
 
 ```bash
-git clone https://github.com/FujiwaraChoki/MoneyPrinterV2.git
+git clone https://github.com/hvboq/ITShortPrinter.git
 
-cd MoneyPrinterV2
+cd ITShortPrinter
 # Copy Example Configuration and fill out values in config.json
 cp config.example.json config.json
 
-# Create a virtual environment
-python -m venv venv
+# Create a Python 3.12 virtual environment, install dependencies, and run preflight
+bash scripts/setup_local.sh
+
+# If an existing venv was created with the wrong Python version
+RECREATE_VENV=1 bash scripts/setup_local.sh
+```
+
+Manual setup is also supported:
+
+```bash
+# Create a virtual environment with the project-required Python version
+python3.12 -m venv venv
 
 # Activate the virtual environment - Windows
 .\venv\Scripts\activate
@@ -63,7 +73,7 @@ python -m venv venv
 source venv/bin/activate
 
 # Install the requirements
-pip install -r requirements.txt
+python -m pip install -r requirements.txt
 ```
 
 ## Usage
