@@ -16,7 +16,7 @@ Use this when working on `FujiwaraChoki/MoneyPrinterV2` for the Korean IT-news S
 - Channel purpose: latest IT/device/technology news summarized for trend awareness and curiosity.
 - CTA: use subscription only. Do not use “save this video” CTA.
 - Avoid forced series framing unless explicitly requested.
-- Text generation: local Ollama on host, model `gemma4:e4b`.
+- Text generation: local Ollama on host, model `gemma4:26b` for higher-quality Shorts scripts and analysis when available.
 - Docker container accesses host Ollama at `http://host.docker.internal:11434` in the current Hermes/WSL environment when using the `ollama` Python SDK.
 - Historical note: `internal.docker.host` was an earlier assumption, but in this container it did not resolve. Prefer `host.docker.internal` unless a future environment proves otherwise.
 - Important URL distinction:
@@ -80,8 +80,8 @@ Primary files:
 
 1. `generate_topic()`
 2. `generate_script()`
-   - After the first script draft is generated, run one local Ollama review pass with `gemma4:e4b` before metadata/TTS/video generation.
-   - Config keys: `script_review_enabled=true`, `script_review_model="gemma4:e4b"`.
+   - After the first script draft is generated, run one local Ollama review pass with `gemma4:26b` before metadata/TTS/video generation.
+   - Config keys: `script_review_enabled=true`, `script_review_model="gemma4:26b"`.
    - Save review artifacts under `.mp/script_reviews/` for daily batch quality review.
 3. `generate_metadata()`
 4. `generate_prompts()`
@@ -178,7 +178,7 @@ Known pitfall: do not match the brand `Nothing` on the generic word `nothing`; r
 curl http://host.docker.internal:11434/api/tags
 ```
 
-- `gemma4:e4b` is pulled on host Ollama.
+- `gemma4:26b` is pulled on host Ollama for the quality-first workflow; `gemma4:e4b` remains a lightweight fallback.
 - `GOOGLE_API_KEY` or `GEMINI_API_KEY` is visible inside the container.
 - Gemini image call returns image bytes and writes into `.mp/`.
 - `.mp/` exists.

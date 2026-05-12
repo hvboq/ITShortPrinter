@@ -8,7 +8,7 @@ All your configurations live in a root-level `config.json`, which starts as a co
 - `firefox_profile`: `string` - Path to your Firefox profile so the app can reuse your logged-in social accounts.
 - `headless`: `boolean` - If `true`, the browser runs without a visible window.
 - `ollama_base_url`: `string` - Base URL of your local Ollama server. Default: `http://127.0.0.1:11434`.
-- `ollama_model`: `string` - Text model to use for generation. Recommended for this repo: `gemma4:e4b`. Local Ollama models such as `gemma4:26b` are supported, and Gemini models such as `gemini-2.5-flash` can also be used when needed. If empty, the app queries Ollama and lets you choose interactively.
+- `ollama_model`: `string` - Text model to use for generation. Recommended for this repo: `gemma4:26b` when local hardware can run it. Smaller local Ollama models such as `gemma4:e4b` remain supported for faster/low-resource runs, and Gemini models such as `gemini-2.5-flash` can also be used when needed. If empty, the app queries Ollama and lets you choose interactively.
 - `twitter_language`: `string` - Language used for tweet generation and posting.
 - `nanobanana2_api_base_url`: `string` - Nano Banana 2 API base URL. Default: `https://generativelanguage.googleapis.com/v1beta`.
 - `nanobanana2_api_key`: `string` - API key for Nano Banana 2. If empty, MPV2 falls back to `GEMINI_API_KEY`.
@@ -56,7 +56,7 @@ All your configurations live in a root-level `config.json`, which starts as a co
   "firefox_profile": "",
   "headless": false,
   "ollama_base_url": "http://127.0.0.1:11434",
-  "ollama_model": "gemma4:e4b",
+  "ollama_model": "gemma4:26b",
   "twitter_language": "English",
   "nanobanana2_api_base_url": "https://generativelanguage.googleapis.com/v1beta",
   "nanobanana2_api_key": "",
