@@ -1,10 +1,15 @@
-# MoneyPrinter V2 — Korean IT News Shorts Automation Fork
+# ITShortPrinter
 
-> **Fork / attribution notice**  
-> This repository is a customized fork of the original [FujiwaraChoki/MoneyPrinterV2](https://github.com/FujiwaraChoki/MoneyPrinterV2) project. The original project automates social-media and YouTube Shorts workflows; this fork extends it for Korean IT-news Shorts generation, Gemini image generation, local Ollama text generation, batch creation, YouTube public upload automation, and post-upload cleanup.
->
-> Original upstream repository: <https://github.com/FujiwaraChoki/MoneyPrinterV2>  
-> Upstream license: **GNU Affero General Public License v3.0 (AGPL-3.0)**. See [LICENSE](LICENSE).
+Korean IT-news Shorts automation fork based on
+[FujiwaraChoki/MoneyPrinterV2](https://github.com/FujiwaraChoki/MoneyPrinterV2).
+
+This project collects recent tech news, ranks Shorts-friendly topics, generates
+Korean narration scripts, creates vertical video assets, renders a YouTube
+Short, and optionally uploads or cross-posts the result.
+
+> Fork / license notice: this repository is a customized fork of the original
+> MoneyPrinterV2 project. The upstream project is licensed under AGPL-3.0, and
+> this fork keeps that license. See [LICENSE](LICENSE).
 
 Sponsored by Post Bridge
 
@@ -12,106 +17,244 @@ Sponsored by Post Bridge
   <img src="docs/repo/PostBridgeBanner.png" alt="Post Bridge integration banner" width="720" />
 </a>
 
+## What This Fork Does
 
-[![madewithlove](https://img.shields.io/badge/made_with-%E2%9D%A4-red?style=for-the-badge&labelColor=orange)](https://github.com/FujiwaraChoki/MoneyPrinterV2)
+- Collects and ranks tech-news candidates from configured sources.
+- Generates Korean YouTube Shorts scripts, metadata, thumbnails, and visual prompts.
+- Uses local or configured LLM providers for text generation.
+- Uses Gemini image generation by default, with placeholder image support for smoke tests.
+- Generates TTS audio, subtitles, title overlays, and vertical Shorts video files.
+- Supports batch Top 5 generation with a manifest and review frames.
+- Supports Selenium-based YouTube Studio upload using a logged-in Firefox profile.
+- Can optionally hand uploaded Shorts to Post Bridge for TikTok and Instagram cross-posting.
+- Keeps inherited MoneyPrinterV2 Twitter, affiliate marketing, and outreach flows.
 
-[![Buy Me A Coffee](https://img.shields.io/badge/Buy%20Me%20A%20Coffee-Donate-brightgreen?logo=buymeacoffee)](https://www.buymeacoffee.com/fujicodes)
-[![GitHub license](https://img.shields.io/github/license/FujiwaraChoki/MoneyPrinterV2?style=for-the-badge)](https://github.com/FujiwaraChoki/MoneyPrinterV2/blob/main/LICENSE)
-[![GitHub issues](https://img.shields.io/github/issues/FujiwaraChoki/MoneyPrinterV2?style=for-the-badge)](https://github.com/FujiwaraChoki/MoneyPrinterV2/issues)
-[![GitHub stars](https://img.shields.io/github/stars/FujiwaraChoki/MoneyPrinterV2?style=for-the-badge)](https://github.com/FujiwaraChoki/MoneyPrinterV2/stargazers)
-[![Discord](https://img.shields.io/discord/1134848537704804432?style=for-the-badge)](https://dsc.gg/fuji-community)
+## Project Layout
 
-An Application that automates the process of making money online.
-MPV2 (MoneyPrinter Version 2) is, as the name suggests, the second version of the MoneyPrinter project. It is a complete rewrite of the original project, with a focus on a wider range of features and a more modular architecture.
+```text
+src/main.py                    Interactive CLI entrypoint
+src/news/                      Lightweight news collection and ranking helpers
+src/news_pipeline.py           Advanced tech-news crawler, parser, and scorer
+src/classes/YouTube.py         YouTube orchestration and upload workflow
+src/classes/youtube_*.py       Video composition, subtitles, visuals, and content helpers
+scripts/setup_local.sh         Local Python 3.12 bootstrap and preflight
+scripts/preflight_local.py     Local readiness checks
+scripts/generate_top5_shorts.py
+scripts/upload_top5_shorts.py
+scripts/upload_top5_public_shorts.py
+docs/                          Configuration and workflow notes
+config.example.json            Safe example config
+```
 
-> **Note:** MPV2 needs Python 3.12 to function effectively.
-> Watch the YouTube video [here](https://youtu.be/wAZ_ZSuIqfk)
+Runtime outputs, generated media, manifests, and local account caches are written
+under `.mp/`. Do not commit real `.mp/` data.
 
-## Features
+## Requirements
 
-- [x] Twitter Bot (with CRON Jobs => `scheduler`)
-- [x] YouTube Shorts Automator (with CRON Jobs => `scheduler`)
-- [x] Affiliate Marketing (Amazon + Twitter)
-- [x] Find local businesses & cold outreach
+- Python 3.12
+- A virtual environment named `venv`
+- ImageMagick for MoviePy subtitle/title rendering
+- A text model provider:
+  - local Ollama, or
+  - Gemini-compatible model configuration
+- Gemini or Google API key when `image_provider` is `gemini`
+- Firefox profile already logged in to YouTube Studio when using upload scripts
 
-## Versions
+Optional features may need extra setup:
 
-MoneyPrinter has different versions for multiple languages developed by the community for the community. Here are some known versions:
+- `faster-whisper` for local subtitle transcription
+- AssemblyAI API key if using third-party STT
+- Post Bridge API key for cross-posting
+- Go toolchain for inherited outreach scraping workflows
 
-- Chinese: [MoneyPrinterTurbo](https://github.com/harry0703/MoneyPrinterTurbo)
+## Quick Start
 
-If you would like to submit your own version/fork of MoneyPrinter, please open an issue describing the changes you made to the fork.
-
-## Installation
-
-> ⚠️ If you are planning to reach out to scraped businesses per E-Mail, please first install the [Go Programming Language](https://golang.org/).
+Run these commands from the repository root.
 
 ```bash
 git clone https://github.com/hvboq/ITShortPrinter.git
-
 cd ITShortPrinter
-# Copy Example Configuration and fill out values in config.json
+
 cp config.example.json config.json
+cp .env.example .env
 
-# Create a Python 3.12 virtual environment, install dependencies, and run preflight
 bash scripts/setup_local.sh
+```
 
-# If an existing venv was created with the wrong Python version
+If an existing virtual environment was created with the wrong Python version:
+
+```bash
 RECREATE_VENV=1 bash scripts/setup_local.sh
 ```
 
 Manual setup is also supported:
 
 ```bash
-# Create a virtual environment with the project-required Python version
 python3.12 -m venv venv
-
-# Activate the virtual environment - Windows
-.\venv\Scripts\activate
-
-# Activate the virtual environment - Unix
 source venv/bin/activate
-
-# Install the requirements
 python -m pip install -r requirements.txt
+python scripts/preflight_local.py
 ```
 
-## Usage
+## Configuration
+
+The main source of truth is `config.json`.
+
+Start from `config.example.json`, then review these values first:
+
+- `ollama_base_url` and `ollama_model`
+- `image_provider`
+- `nanobanana2_api_key`, `GEMINI_API_KEY`, or `GOOGLE_API_KEY`
+- `tts_provider` and `tts_voice`
+- `stt_provider`, `whisper_model`, `whisper_device`, and `whisper_compute_type`
+- `imagemagick_path`
+- `firefox_profile` and `headless`
+- `news_pipeline`
+- `post_bridge`
+
+Secrets can live in `.env`; keep `.env` and real `config.json` values out of git.
+See [docs/Configuration.md](docs/Configuration.md) for the full config reference.
+
+## Common Commands
+
+Run the interactive CLI:
 
 ```bash
-# Run the application
+source venv/bin/activate
 python src/main.py
 ```
 
-## Documentation
+Validate the local environment:
 
-All relevant documents can be found [here](docs/).
+```bash
+source venv/bin/activate
+python scripts/preflight_local.py
+```
 
-## Scripts
+Fetch and print ranked tech-news candidates:
 
-For easier usage, there are some scripts in the `scripts` directory that can be used to directly access the core functionality of MPV2 without the need for user interaction.
+```bash
+source venv/bin/activate
+python scripts/fetch_tech_news.py
+```
 
-All scripts need to be run from the root directory of the project, e.g. `bash scripts/upload_video.sh`.
+Generate one news Short from ranked or cached news:
+
+```bash
+source venv/bin/activate
+python scripts/make_news_short.py
+```
+
+Generate a batch of five Shorts:
+
+```bash
+source venv/bin/activate
+python scripts/generate_top5_shorts.py
+```
+
+Limit source candidates or exclude terms during batch generation:
+
+```bash
+NEWS_LIMIT=30 EXCLUDE_TERMS="lawsuit|earnings|rumor" python scripts/generate_top5_shorts.py
+```
+
+Batch outputs are written to:
+
+```text
+.mp/batch_top5/manifest.json
+.mp/batch_top5/frame_rank*.png
+```
+
+## Upload Workflow
+
+YouTube upload automation uses Selenium and a logged-in Firefox profile. Before
+uploading, confirm the generated MP4s, metadata, and review frames in
+`.mp/batch_top5/`.
+
+Upload generated Top 5 Shorts as unlisted:
+
+```bash
+source venv/bin/activate
+python scripts/upload_top5_shorts.py
+```
+
+Upload generated Top 5 Shorts as public:
+
+```bash
+source venv/bin/activate
+python scripts/upload_top5_public_shorts.py
+```
+
+Control the public upload rank range:
+
+```bash
+START_RANK=2 END_RANK=4 python scripts/upload_top5_public_shorts.py
+```
+
+The upload scripts write manifests and screenshots under `.mp/batch_top5/`.
+Treat these as operational logs, not source files.
+
+## Post Bridge Cross-Posting
+
+Post Bridge is optional. When enabled, the project can upload the generated video
+to Post Bridge after a successful YouTube upload and publish it to configured
+TikTok or Instagram accounts.
+
+Start with:
+
+- [docs/PostBridge.md](docs/PostBridge.md)
+- `post_bridge` in `config.json`
+- `POST_BRIDGE_API_KEY` in `.env` or your shell environment
+
+## Testing And Validation
+
+There is no strict coverage gate yet, but the repo has unit tests. Use these
+checks before committing code changes:
+
+```bash
+source venv/bin/activate
+python -m unittest discover -s tests
+python scripts/preflight_local.py
+```
+
+For documentation-only changes, a quick sanity check is usually enough:
+
+```bash
+git diff --check
+```
+
+## Operational Notes
+
+- Generate locally first; upload only after checking the manifest and preview frames.
+- Use `image_provider=placeholder` only for smoke tests, not production uploads.
+- Keep YouTube Studio automation conservative because the web UI changes often.
+- If upload fails, inspect screenshots in `.mp/batch_top5/upload_screens/`.
+- If the wrong YouTube channel is active, the upload scripts should abort instead of posting.
+
+## More Documentation
+
+- [docs/Configuration.md](docs/Configuration.md)
+- [docs/YouTube.md](docs/YouTube.md)
+- [docs/PostBridge.md](docs/PostBridge.md)
+- [docs/Roadmap.md](docs/Roadmap.md)
 
 ## Contributing
 
-Please read [CONTRIBUTING.md](CONTRIBUTING.md) for details on our code of conduct, and the process for submitting pull requests to us. Check out [docs/Roadmap.md](docs/Roadmap.md) for a list of features that need to be implemented.
+See [CONTRIBUTING.md](CONTRIBUTING.md). Keep PRs focused, open them against
+`main`, and avoid committing generated media, cache data, credentials, browser
+profiles, or local manifests.
 
-## Code of Conduct
+## License And Attribution
 
-Please read [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) for details on our code of conduct, and the process for submitting pull requests to us.
+This fork is based on
+[FujiwaraChoki/MoneyPrinterV2](https://github.com/FujiwaraChoki/MoneyPrinterV2).
+MoneyPrinterV2 is licensed under the GNU Affero General Public License v3.0.
+This fork preserves that license; see [LICENSE](LICENSE) for the full text.
 
-## License and upstream attribution
-
-This fork is based on the original [FujiwaraChoki/MoneyPrinterV2](https://github.com/FujiwaraChoki/MoneyPrinterV2) repository.
-
-MoneyPrinterV2 is licensed under the **GNU Affero General Public License v3.0 (AGPL-3.0)**. This customized fork preserves that license; see [LICENSE](LICENSE) for the full license text. If you run a modified version as a network service, review the AGPL-3.0 source-code availability obligations.
-
-## Acknowledgments
-
-- [KittenTTS](https://github.com/KittenML/KittenTTS)
-- [gpt4free](https://github.com/xtekky/gpt4free)
+If you run a modified version as a network service, review the AGPL-3.0
+source-code availability obligations.
 
 ## Disclaimer
 
-This project is for educational purposes only. The author will not be responsible for any misuse of the information provided. All the information on this website is published in good faith and for general information purposes only. The author does not make any warranties about the completeness, reliability, and accuracy of this information. Any action you take upon the information you find on this website (FujiwaraChoki/MoneyPrinterV2) is strictly at your own risk. The author will not be liable for any losses and/or damages in connection with the use of our website.
+This project is for educational and operational experimentation purposes. Review
+all generated content, account actions, and uploads before publishing.
