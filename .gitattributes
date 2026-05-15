@@ -1,0 +1,27 @@
+# Keep source-controlled text portable across Windows and Linux.
+* text=auto eol=lf
+
+# Source and project metadata are UTF-8 text.
+*.py text eol=lf
+*.sh text eol=lf
+*.md text eol=lf
+*.txt text eol=lf
+*.json text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+*.toml text eol=lf
+*.env.example text eol=lf
+
+# Media, fonts, archives, and generated binary artifacts must not be normalized.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.mp3 binary
+*.mp4 binary
+*.wav binary
+*.ttf binary
+*.ttc binary
+*.otf binary
+*.sqlite3 binary
+*.zip binary
