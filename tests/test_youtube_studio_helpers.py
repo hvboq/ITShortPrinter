@@ -10,7 +10,21 @@ if str(SCRIPTS_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPTS_DIR))
 
 
-def install_fake_selenium() -> None:
+FAKE_SELENIUM_MODULES = (
+    "selenium",
+    "selenium.webdriver",
+    "selenium.webdriver.common",
+    "selenium.webdriver.common.action_chains",
+    "selenium.webdriver.common.by",
+    "selenium.webdriver.common.keys",
+    "selenium.webdriver.support",
+    "selenium.webdriver.support.expected_conditions",
+    "selenium.webdriver.support.ui",
+)
+
+
+def install_fake_selenium() -> dict[str, types.ModuleType | None]:
+    original_modules = {name: sys.modules.get(name) for name in FAKE_SELENIUM_MODULES}
     selenium = types.ModuleType("selenium")
     webdriver = types.ModuleType("selenium.webdriver")
     common = types.ModuleType("selenium.webdriver.common")
@@ -70,14 +84,26 @@ def install_fake_selenium() -> None:
         expected_conditions,
         ui,
     ):
-        sys.modules.setdefault(module.__name__, module)
+        sys.modules[module.__name__] = module
+
+    return original_modules
 
 
-install_fake_selenium()
+def restore_modules(original_modules: dict[str, types.ModuleType | None]) -> None:
+    for name, original in original_modules.items():
+        if original is None:
+            sys.modules.pop(name, None)
+        else:
+            sys.modules[name] = original
+
+
+_original_selenium_modules = install_fake_selenium()
 
 from youtube_studio import clean_description  # noqa: E402
 from youtube_studio import clean_title  # noqa: E402
 from youtube_studio import visibility_config  # noqa: E402
+
+restore_modules(_original_selenium_modules)
 
 
 class YouTubeStudioHelperTests(unittest.TestCase):

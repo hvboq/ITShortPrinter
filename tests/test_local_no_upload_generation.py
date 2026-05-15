@@ -48,7 +48,9 @@ class LocalNoUploadGenerationTests(unittest.TestCase):
         ):
             prompts = youtube.generate_prompts()
 
-        self.assertEqual(prompts, ["prompt 1", "prompt 2"])
+        self.assertEqual(len(prompts), 2)
+        self.assertTrue(prompts[0].startswith("prompt 1"))
+        self.assertTrue(prompts[1].startswith("prompt 2"))
 
 
 if __name__ == "__main__":

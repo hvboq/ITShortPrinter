@@ -1,8 +1,40 @@
+import sys
+
 try:
     from termcolor import colored
 except ModuleNotFoundError:
     def colored(text, *_args, **_kwargs):
         return text
+
+
+def _ensure_utf8_stdout() -> None:
+    """Prefer UTF-8 output when the host stream allows reconfiguration."""
+    stream = getattr(sys, "stdout", None)
+    reconfigure = getattr(stream, "reconfigure", None)
+    if reconfigure is None:
+        return
+    try:
+        reconfigure(encoding="utf-8", errors="replace")
+    except (OSError, ValueError):
+        pass
+
+
+def _safe_print(message: str) -> None:
+    try:
+        print(message)
+    except UnicodeEncodeError:
+        print(str(message).encode("ascii", "replace").decode("ascii"))
+
+
+def _safe_input(prompt: str) -> str:
+    try:
+        return input(prompt)
+    except UnicodeEncodeError:
+        fallback = str(prompt).encode("ascii", "replace").decode("ascii")
+        return input(fallback)
+
+
+_ensure_utf8_stdout()
 
 def error(message: str, show_emoji: bool = True) -> None:
     """
@@ -16,7 +48,7 @@ def error(message: str, show_emoji: bool = True) -> None:
         None
     """
     emoji = "❌" if show_emoji else ""
-    print(colored(f"{emoji} {message}", "red"))
+    _safe_print(colored(f"{emoji} {message}", "red"))
 
 def success(message: str, show_emoji: bool = True) -> None:
     """
@@ -30,7 +62,7 @@ def success(message: str, show_emoji: bool = True) -> None:
         None
     """
     emoji = "✅" if show_emoji else ""
-    print(colored(f"{emoji} {message}", "green"))
+    _safe_print(colored(f"{emoji} {message}", "green"))
 
 def info(message: str, show_emoji: bool = True) -> None:
     """
@@ -44,7 +76,7 @@ def info(message: str, show_emoji: bool = True) -> None:
         None
     """
     emoji = "ℹ️" if show_emoji else ""
-    print(colored(f"{emoji} {message}", "magenta"))
+    _safe_print(colored(f"{emoji} {message}", "magenta"))
 
 def warning(message: str, show_emoji: bool = True) -> None:
     """
@@ -58,7 +90,7 @@ def warning(message: str, show_emoji: bool = True) -> None:
         None
     """
     emoji = "⚠️" if show_emoji else ""
-    print(colored(f"{emoji} {message}", "yellow"))
+    _safe_print(colored(f"{emoji} {message}", "yellow"))
 
 def question(message: str, show_emoji: bool = True) -> str:
     """
@@ -72,4 +104,4 @@ def question(message: str, show_emoji: bool = True) -> str:
         user_input (str): The user's input
     """
     emoji = "❓" if show_emoji else ""
-    return input(colored(f"{emoji} {message}", "magenta"))
+    return _safe_input(colored(f"{emoji} {message}", "magenta"))

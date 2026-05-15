@@ -17,7 +17,15 @@ def get_config_path() -> str:
 
 def load_config() -> dict:
     """Load the project config file."""
-    with open(get_config_path(), "r", encoding="utf-8") as file:
+    config_path = get_config_path()
+    if not os.path.exists(config_path):
+        example_path = os.path.join(ROOT_DIR, "config.example.json")
+        if os.path.exists(example_path):
+            config_path = example_path
+        else:
+            return {}
+
+    with open(config_path, "r", encoding="utf-8") as file:
         return json.load(file)
 
 
@@ -100,8 +108,7 @@ def get_verbose() -> bool:
     Returns:
         verbose (bool): The verbose flag
     """
-    with open(os.path.join(ROOT_DIR, "config.json"), "r") as file:
-        return json.load(file)["verbose"]
+    return bool(load_config().get("verbose", False))
 
 def get_firefox_profile_path() -> str:
     """
@@ -144,8 +151,7 @@ def get_ollama_model() -> str:
     Returns:
         model (str): The Ollama model name, or default gemma4:e4b if not set.
     """
-    with open(os.path.join(ROOT_DIR, "config.json"), "r") as file:
-        return json.load(file).get("ollama_model", "gemma4:e4b")
+    return load_config().get("ollama_model", "gemma4:e4b")
 
 
 def get_script_review_enabled() -> bool:
@@ -273,8 +279,7 @@ def get_threads() -> int:
     Returns:
         threads (int): Amount of threads
     """
-    with open(os.path.join(ROOT_DIR, "config.json"), "r") as file:
-        return json.load(file)["threads"]
+    return int(load_config().get("threads", 2))
     
 def get_zip_url() -> str:
     """
@@ -439,8 +444,7 @@ def get_font() -> str:
     Returns:
         font (str): The font
     """
-    with open(os.path.join(ROOT_DIR, "config.json"), "r") as file:
-        return json.load(file)["font"]
+    return load_config().get("font", "bold_font.ttf")
 
 def get_fonts_dir() -> str:
     """
