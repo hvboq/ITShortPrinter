@@ -37,7 +37,8 @@ src/news/                      Lightweight news collection and ranking helpers
 src/news_pipeline.py           Advanced tech-news crawler, parser, and scorer
 src/classes/YouTube.py         YouTube orchestration and upload workflow
 src/classes/youtube_*.py       Video composition, subtitles, visuals, and content helpers
-scripts/setup_local.sh         Local Python 3.12 bootstrap and preflight
+scripts/setup_local.sh         Linux/macOS Python 3.12 bootstrap and preflight
+scripts/setup_local_windows.ps1 Windows PowerShell Python 3.12 bootstrap and preflight
 scripts/preflight_local.py     Local readiness checks
 scripts/generate_top5_shorts.py
 scripts/upload_top5_shorts.py
@@ -71,6 +72,36 @@ Optional features may need extra setup:
 
 Run these commands from the repository root.
 
+### Windows PowerShell
+
+```powershell
+git clone https://github.com/hvboq/ITShortPrinter.git
+cd ITShortPrinter
+
+powershell -ExecutionPolicy Bypass -File scripts/setup_local_windows.ps1
+```
+
+If an existing virtual environment was created with the wrong Python version:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts/setup_local_windows.ps1 -RecreateVenv
+```
+
+The Windows setup script copies `config.example.json` to `config.json`, copies
+`.env.example` to `.env` when available, creates `.\venv` with Python 3.12,
+installs requirements, applies Windows-friendly config defaults, and runs the
+local preflight check.
+
+Manual Windows setup is also supported:
+
+```powershell
+py -3.12 -m venv venv
+.\venv\Scripts\python.exe -m pip install -r requirements.txt
+.\venv\Scripts\python.exe scripts\preflight_local.py
+```
+
+### Linux/macOS
+
 ```bash
 git clone https://github.com/hvboq/ITShortPrinter.git
 cd ITShortPrinter
@@ -87,7 +118,7 @@ If an existing virtual environment was created with the wrong Python version:
 RECREATE_VENV=1 bash scripts/setup_local.sh
 ```
 
-Manual setup is also supported:
+Manual Linux/macOS setup is also supported:
 
 ```bash
 python3.12 -m venv venv
@@ -234,6 +265,7 @@ git diff --check
 ## More Documentation
 
 - [docs/Configuration.md](docs/Configuration.md)
+- [docs/WindowsSetup.md](docs/WindowsSetup.md)
 - [docs/YouTube.md](docs/YouTube.md)
 - [docs/PostBridge.md](docs/PostBridge.md)
 - [docs/Roadmap.md](docs/Roadmap.md)
