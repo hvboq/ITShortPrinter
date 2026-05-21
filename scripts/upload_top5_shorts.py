@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import json
+import os
 import time
+from pathlib import Path
 
 from classes.YouTube import YouTube
 from project_paths import project_root, youtube_firefox_profile
@@ -22,15 +24,33 @@ from youtube_studio import select_visibility
 
 ROOT = project_root()
 PROFILE = youtube_firefox_profile()
-MANIFEST = ROOT / ".mp" / "batch_top5" / "manifest.json"
-UPLOAD_MANIFEST = ROOT / ".mp" / "batch_top5" / "upload_manifest.json"
-SCREEN_DIR = ROOT / ".mp" / "batch_top5" / "upload_screens"
+MANIFEST = Path(
+    os.environ.get(
+        "UPLOAD_SOURCE_MANIFEST",
+        str(ROOT / ".mp" / "batch_top5" / "manifest.json"),
+    )
+)
+UPLOAD_MANIFEST = Path(
+    os.environ.get(
+        "UPLOAD_OUTPUT_MANIFEST",
+        str(MANIFEST.parent / "upload_manifest.json"),
+    )
+)
+SCREEN_DIR = Path(os.environ.get("UPLOAD_SCREEN_DIR", str(MANIFEST.parent / "upload_screens")))
 SCREEN_DIR.mkdir(parents=True, exist_ok=True)
 
 VISIBILITY = "unlisted"
 
 print("UPLOAD_TOP5_START", flush=True)
+print("UPLOAD_SOURCE_MANIFEST=", str(MANIFEST), flush=True)
 data = json.loads(MANIFEST.read_text(encoding="utf-8"))
+for idx, item in enumerate(data, 1):
+    if "rank" not in item:
+        item["rank"] = item.get("batch_index") or idx
+start_rank = int(os.environ.get("START_RANK", "1"))
+end_rank = int(os.environ.get("END_RANK", "999"))
+data = [item for item in data if start_rank <= int(item.get("rank", 0)) <= end_rank]
+print("UPLOAD_RANK_RANGE=", start_rank, end_rank, "COUNT=", len(data), flush=True)
 y = YouTube("it-han-haru", "IT한 하루", PROFILE, "Korean IT News", "Korean")
 d = y.browser
 results = []
