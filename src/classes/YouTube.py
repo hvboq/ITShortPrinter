@@ -518,6 +518,14 @@ class YouTube:
         """Generate a visually rich vertical fallback PNG when Gemini is rate-limited."""
         return youtube_visuals.generate_placeholder_image(prompt, self.images)
 
+    def generate_image_hermes(self, prompt: str) -> str:
+        """Use a pre-generated Hermes image from .mp/hermes_images/queue."""
+        image_path = youtube_visuals.consume_hermes_queued_image(self.images)
+        if image_path:
+            return image_path
+        warning("Hermes image queue is empty. Falling back to placeholder image.")
+        return self.generate_placeholder_image(prompt)
+
     def generate_image_nanobanana2(self, prompt: str) -> str:
         """
         Generates an AI Image using Nano Banana 2 API (Gemini image API).
@@ -573,6 +581,8 @@ class YouTube:
         if provider == "placeholder":
             warning("Using placeholder image provider for local smoke testing. Do not use for production uploads.")
             return self.generate_placeholder_image(prompt)
+        if provider == "hermes":
+            return self.generate_image_hermes(prompt)
         if provider != "gemini":
             warning(f"Unknown image_provider '{provider}'. Falling back to Gemini.")
 

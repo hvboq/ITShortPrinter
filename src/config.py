@@ -244,7 +244,9 @@ def get_nanobanana2_aspect_ratio() -> str:
 
 def get_image_provider() -> str:
     """
-    Gets the image provider. Use 'gemini' for production and 'placeholder' only for local smoke tests.
+    Gets the image provider. Use 'gemini' for API image generation, 'hermes' to consume
+    Hermes-agent-generated images from .mp/hermes_images/queue, and 'placeholder' only
+    for local smoke tests.
 
     Returns:
         provider (str): Image provider name

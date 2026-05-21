@@ -48,6 +48,7 @@ def main() -> int:
     failures = 0
 
     stt_provider = str(cfg.get("stt_provider", "local_whisper")).lower()
+    image_provider = str(cfg.get("image_provider", "gemini")).lower()
     configured_text_model = str(cfg.get("ollama_model", "")).strip()
     using_gemini_text = configured_text_model.lower().startswith("gemini")
 
@@ -100,17 +101,22 @@ def main() -> int:
             "https://generativelanguage.googleapis.com/v1beta",
         )
     ).rstrip("/")
-    if api_key:
+    if image_provider == "hermes":
+        ok("Hermes image provider selected; Gemini image API key is not required")
+    elif api_key:
         ok("nanobanana2_api_key is set")
     else:
         fail("nanobanana2_api_key is empty (and GEMINI_API_KEY is not set)")
         failures += 1
 
-    reachable, detail = check_url(nb2_base, timeout=8)
-    if not reachable:
-        warn(f"Nano Banana 2 base URL could not be reached: {detail}")
+    if image_provider == "hermes":
+        ok("Skipping Nano Banana 2 reachability check for Hermes image provider")
     else:
-        ok(f"Nano Banana 2 base URL reachable: {nb2_base}")
+        reachable, detail = check_url(nb2_base, timeout=8)
+        if not reachable:
+            warn(f"Nano Banana 2 base URL could not be reached: {detail}")
+        else:
+            ok(f"Nano Banana 2 base URL reachable: {nb2_base}")
 
     if stt_provider == "local_whisper":
         try:

@@ -1,7 +1,9 @@
 import io
 import os
 import re
+import shutil
 import textwrap
+from pathlib import Path
 from uuid import uuid4
 
 import requests
@@ -56,6 +58,39 @@ def contextual_thumbnail_prompt(topic: str) -> str:
         f"핵심 주제: {topic}, "
         "generic device와 기술 뉴스 분위기, 로고와 화면 UI와 텍스트 없음"
     )
+
+
+def consume_hermes_queued_image(images: list[str]) -> str | None:
+    """Move the next Hermes-generated queued image into .mp for MoviePy consumption."""
+    queue_dir = Path(os.environ.get(
+        "HERMES_IMAGE_QUEUE_DIR",
+        str(Path(ROOT_DIR) / ".mp" / "hermes_images" / "queue"),
+    ))
+    if not queue_dir.exists():
+        return None
+
+    candidates = sorted(
+        path for path in queue_dir.iterdir()
+        if path.is_file() and path.suffix.lower() in {".png", ".jpg", ".jpeg", ".webp"}
+    )
+    if not candidates:
+        return None
+
+    source = candidates[0]
+    dest = Path(ROOT_DIR) / ".mp" / f"hermes-{uuid4()}.png"
+    dest.parent.mkdir(parents=True, exist_ok=True)
+
+    image = Image.open(source).convert("RGB")
+    image.save(dest)
+    try:
+        source.unlink()
+    except OSError:
+        shutil.move(str(source), str(source.with_suffix(source.suffix + ".used")))
+
+    images.append(str(dest))
+    if get_verbose():
+        info(f' => Consumed Hermes-generated image "{source}" as "{dest}"')
+    return str(dest)
 
 
 def generate_placeholder_image(prompt: str, images: list[str]) -> str:
