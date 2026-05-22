@@ -154,6 +154,29 @@ def get_ollama_model() -> str:
     return load_config().get("ollama_model", "gemma4:e4b")
 
 
+def get_text_provider() -> str:
+    """
+    Gets the text-generation provider.
+
+    Supported values:
+    - ollama: local Ollama chat API
+    - gemini: Google Generative Language API when the selected model starts with gemini
+    - hermes: Hermes CLI, usually backed by Codex gpt-5.5 on this machine
+    """
+    env_provider = get_env_var("TEXT_PROVIDER", "").strip()
+    if env_provider:
+        return env_provider.lower()
+    return str(load_config().get("text_provider", "ollama")).strip().lower()
+
+
+def get_hermes_model() -> str:
+    """Gets the Hermes CLI model used for text generation."""
+    env_model = get_env_var("HERMES_TEXT_MODEL", "").strip()
+    if env_model:
+        return env_model
+    return str(load_config().get("hermes_model", "gpt-5.5")).strip() or "gpt-5.5"
+
+
 def get_script_review_enabled() -> bool:
     """
     Gets whether Shorts scripts should be reviewed once by local Ollama after initial generation.

@@ -188,6 +188,8 @@ class YouTube:
         Returns:
             response (str): The generated AI Repsonse.
         """
+        if model_name is None and get_text_provider() == "hermes":
+            model_name = f"hermes:{get_hermes_model()}"
         return generate_text(prompt, model_name=model_name or get_ollama_model())
 
     def generate_topic(self) -> str:

@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import json
 import os
+import subprocess
 import sys
 from typing import Tuple
 
@@ -49,7 +50,9 @@ def main() -> int:
 
     stt_provider = str(cfg.get("stt_provider", "local_whisper")).lower()
     image_provider = str(cfg.get("image_provider", "gemini")).lower()
+    text_provider = str(cfg.get("text_provider", "ollama")).lower()
     configured_text_model = str(cfg.get("ollama_model", "")).strip()
+    hermes_model = str(cfg.get("hermes_model", "gpt-5.5")).strip() or "gpt-5.5"
     using_gemini_text = configured_text_model.lower().startswith("gemini")
 
     ok(f"stt_provider={stt_provider}")
@@ -73,7 +76,26 @@ def main() -> int:
         warn("firefox_profile is empty. Twitter/YouTube automation requires this.")
 
     # Text generation provider
-    if using_gemini_text:
+    if text_provider == "hermes":
+        try:
+            completed = subprocess.run(
+                ["hermes", "chat", "-q", "Reply with OK only.", "--quiet", "--model", hermes_model],
+                input=None,
+                capture_output=True,
+                encoding="utf-8",
+                timeout=90,
+                check=False,
+            )
+            if completed.returncode == 0 and completed.stdout.strip():
+                ok(f"Hermes text provider selected; Hermes CLI responded with model {hermes_model}")
+            else:
+                detail = completed.stderr.strip() or completed.stdout.strip() or f"exit code {completed.returncode}"
+                fail(f"Hermes text provider selected but Hermes CLI failed: {detail}")
+                failures += 1
+        except Exception as exc:
+            fail(f"Hermes text provider selected but Hermes CLI could not run: {exc}")
+            failures += 1
+    elif using_gemini_text:
         ok(f"text model uses Google Gemini: {configured_text_model}")
     else:
         base = str(cfg.get("ollama_base_url", "http://127.0.0.1:11434")).rstrip("/")

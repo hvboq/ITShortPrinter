@@ -1,3 +1,5 @@
+import subprocess
+
 import requests
 
 try:
@@ -7,7 +9,9 @@ except ImportError:
 
 from config import get_nanobanana2_api_base_url
 from config import get_nanobanana2_api_key
+from config import get_hermes_model
 from config import get_ollama_base_url
+from config import get_text_provider
 
 _selected_model: str | None = None
 
@@ -55,6 +59,49 @@ def _is_gemini_model(model_name: str | None) -> bool:
     """
     normalized = str(model_name or "").strip().lower()
     return normalized.startswith("gemini")
+
+
+def _is_hermes_model(model_name: str | None) -> bool:
+    """Returns True when the model should be routed through Hermes CLI."""
+    normalized = str(model_name or "").strip().lower()
+    return normalized == "hermes" or normalized.startswith("hermes:")
+
+
+def _normalize_hermes_model(model_name: str | None) -> str:
+    """Strip the optional hermes: prefix and fall back to configured Hermes model."""
+    raw = str(model_name or "").strip()
+    if raw.lower().startswith("hermes:"):
+        raw = raw.split(":", 1)[1].strip()
+    if not raw or raw.lower() == "hermes":
+        return get_hermes_model()
+    return raw
+
+
+def _run_hermes_chat(prompt: str, model_name: str | None = None) -> str:
+    """Generate text via Hermes CLI single-query mode."""
+    command = ["hermes", "chat", "-q", prompt, "--quiet"]
+    model = _normalize_hermes_model(model_name)
+    if model:
+        command.extend(["--model", model])
+
+    completed = subprocess.run(
+        command,
+        input=None,
+        capture_output=True,
+        encoding="utf-8",
+        timeout=300,
+        check=False,
+    )
+    if completed.returncode != 0:
+        stderr = str(completed.stderr or "").strip()
+        stdout = str(completed.stdout or "").strip()
+        detail = stderr or stdout or f"exit code {completed.returncode}"
+        raise RuntimeError(f"Hermes text generation failed: {detail}")
+
+    response = str(completed.stdout or "").strip()
+    if not response:
+        raise RuntimeError("Hermes text generation returned an empty response.")
+    return response
 
 
 def _generate_text_with_gemini(prompt: str, model_name: str) -> str:
@@ -115,10 +162,15 @@ def generate_text(prompt: str, model_name: str = None) -> str:
         response (str): Generated text
     """
     model = model_name or _selected_model
+    if get_text_provider() == "hermes" and not model:
+        model = f"hermes:{get_hermes_model()}"
     if not model:
         raise RuntimeError(
             "No text model selected. Call select_model() first or pass model_name."
         )
+
+    if _is_hermes_model(model):
+        return _run_hermes_chat(prompt, model_name=_normalize_hermes_model(model)).strip()
 
     if _is_gemini_model(model):
         return _generate_text_with_gemini(prompt, model)
