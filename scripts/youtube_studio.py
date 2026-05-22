@@ -287,6 +287,14 @@ def click_publish_or_done(
                 click_js(driver, button)
                 return True
 
+    if candidates:
+        try:
+            force_target = next((button for button in candidates if visible(button)), candidates[0])
+            click_js(driver, force_target)
+            return True
+        except Exception as exc:
+            print(f"{debug_label}_FORCE_CLICK_FAILED={type(exc).__name__}:{exc}", flush=True)
+
     print(
         f"{debug_label}_BUTTONS_DEBUG=",
         [

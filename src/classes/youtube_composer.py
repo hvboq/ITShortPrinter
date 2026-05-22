@@ -157,8 +157,19 @@ def compose_short_video(
             overlay_clips.append(title_overlay_clip)
         overlay_clips.extend(subtitle_clips or [])
 
-        rendered_clip = CompositeVideoClip(overlay_clips)
-        rendered_clip.write_videofile(output_path, threads=threads)
+        rendered_clip = CompositeVideoClip(overlay_clips).set_fps(fps)
+        temp_audiofile = os.path.splitext(output_path)[0] + "-temp-audio.m4a"
+        rendered_clip.write_videofile(
+            output_path,
+            fps=fps,
+            codec="libx264",
+            audio_codec="aac",
+            audio_fps=audio_fps,
+            preset="medium",
+            threads=threads,
+            temp_audiofile=temp_audiofile,
+            remove_temp=True,
+        )
         return output_path
     finally:
         for clip in [

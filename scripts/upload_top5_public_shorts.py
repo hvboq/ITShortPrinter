@@ -125,7 +125,7 @@ try:
         print(f"UPLOAD_{rank}_VISIBILITY_PUBLIC", flush=True)
         time.sleep(1)
 
-        if not click_publish_or_done(d, "PUBLISH"):
+        if not click_publish_or_done(d, "PUBLISH", retry_delay=10, attempts=30):
             raise RuntimeError("Could not click Publish/Done button")
         print(f"UPLOAD_{rank}_PUBLISH_CLICKED", flush=True)
         time.sleep(12)
