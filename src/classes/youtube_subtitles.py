@@ -172,7 +172,7 @@ def render_title_overlay_image(
         radius=18,
         fill=(255, 224, 52, 245),
     )
-    draw.text((box_x + 48, box_y + 38), "TOPIC", font=badge_font, fill=(0, 0, 0, 255))
+    draw.text((box_x + 48, box_y + 38), "이슈", font=badge_font, fill=(0, 0, 0, 255))
 
     max_text_width = box_w - 210
     words = text.split()

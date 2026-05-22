@@ -734,6 +734,10 @@ class YouTube:
         candidates = [
             os.path.join(get_fonts_dir(), "malgun.ttf"),
             os.path.join(get_fonts_dir(), "malgunbd.ttf"),
+            "C:/Windows/Fonts/malgun.ttf",
+            "C:/Windows/Fonts/malgunbd.ttf",
+            "/c/Windows/Fonts/malgun.ttf",
+            "/c/Windows/Fonts/malgunbd.ttf",
             "/mnt/c/Windows/Fonts/malgun.ttf",
             "/mnt/c/Windows/Fonts/malgunbd.ttf",
             "/usr/share/fonts/truetype/wqy/wqy-zenhei.ttc",
