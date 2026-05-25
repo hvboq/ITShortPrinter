@@ -56,6 +56,13 @@ class SubtitleFallbackTests(unittest.TestCase):
         self.assertIsInstance(clips[0], ImageClip)
         self.assertGreater(clips[0].duration, 0)
 
+    def test_subtitle_style_uses_white_text_on_black_background(self):
+        from classes import youtube_subtitles
+
+        self.assertEqual(youtube_subtitles.SUBTITLE_TEXT_FILL, (255, 255, 255, 255))
+        self.assertEqual(youtube_subtitles.SUBTITLE_BACKGROUND_FILL[:3], (0, 0, 0))
+        self.assertGreaterEqual(youtube_subtitles.SUBTITLE_BACKGROUND_FILL[3], 200)
+
 
 if __name__ == "__main__":
     unittest.main()

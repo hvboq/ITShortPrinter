@@ -5,6 +5,11 @@ from moviepy.editor import ImageClip
 from PIL import Image, ImageDraw, ImageFont
 
 
+SUBTITLE_BACKGROUND_FILL = (0, 0, 0, 210)
+SUBTITLE_TEXT_FILL = (255, 255, 255, 255)
+SUBTITLE_TEXT_STROKE_FILL = (0, 0, 0, 255)
+
+
 def split_script_for_subtitles(text: str, max_chars: int = 34) -> list[str]:
     """Split a Korean narration script into short subtitle chunks."""
     cleaned = re.sub(r"\s+", " ", str(text or "")).strip()
@@ -111,7 +116,7 @@ def render_subtitle_image(
     draw.rounded_rectangle(
         (box_x, box_y, box_x + box_width, box_y + box_height),
         radius=28,
-        fill=(0, 0, 0, 170),
+        fill=SUBTITLE_BACKGROUND_FILL,
     )
 
     y = box_y + 28
@@ -121,9 +126,9 @@ def render_subtitle_image(
             (x, y),
             line,
             font=font,
-            fill=(255, 245, 80, 255),
+            fill=SUBTITLE_TEXT_FILL,
             stroke_width=stroke_width,
-            stroke_fill=(0, 0, 0, 255),
+            stroke_fill=SUBTITLE_TEXT_STROKE_FILL,
         )
         y += line_height + 16
     return image
