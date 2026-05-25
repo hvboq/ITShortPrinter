@@ -187,6 +187,8 @@ def archive_articles(articles: Iterable[dict], db_path: str | Path | None = None
     for article in items:
         article_id = str(article.get("id") or article.get("canonical_url") or article.get("url") or article.get("title"))
         payload = dict(article)
+        fetched_at = payload.get("fetched_at") or archived_at
+        payload["fetched_at"] = fetched_at
         summary = summarize_article(payload)
         rows.append(
             {
@@ -199,7 +201,7 @@ def archive_articles(articles: Iterable[dict], db_path: str | Path | None = None
                 "source_tier": payload.get("source_tier"),
                 "language": payload.get("language"),
                 "published_at": payload.get("published_at"),
-                "fetched_at": payload.get("fetched_at"),
+                "fetched_at": fetched_at,
                 "archived_at": archived_at,
                 "author": payload.get("author"),
                 "raw_excerpt": normalize_text(payload.get("raw_excerpt")),
@@ -261,9 +263,11 @@ def prune_daily_top_articles(
         if keep_ties:
             sql = """
                 WITH ranked AS (
-                    SELECT id, date(fetched_at) AS d, shorts_score,
+                    SELECT id,
+                           date(COALESCE(NULLIF(fetched_at, ''), archived_at, published_at)) AS d,
+                           shorts_score,
                            ROW_NUMBER() OVER (
-                               PARTITION BY date(fetched_at)
+                               PARTITION BY date(COALESCE(NULLIF(fetched_at, ''), archived_at, published_at))
                                ORDER BY shorts_score DESC, id ASC
                            ) AS rn
                     FROM articles
@@ -286,7 +290,7 @@ def prune_daily_top_articles(
                 WITH ranked AS (
                     SELECT id,
                            ROW_NUMBER() OVER (
-                               PARTITION BY date(fetched_at)
+                               PARTITION BY date(COALESCE(NULLIF(fetched_at, ''), archived_at, published_at))
                                ORDER BY shorts_score DESC, id ASC
                            ) AS rn
                     FROM articles

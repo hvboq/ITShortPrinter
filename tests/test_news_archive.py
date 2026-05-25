@@ -106,6 +106,32 @@ class NewsArchiveTests(unittest.TestCase):
             self.assertTrue(row[5])
             self.assertTrue(row[6])
 
+    def test_archive_articles_defaults_missing_fetched_at(self):
+        from news.archive import archive_articles
+
+        with tempfile.TemporaryDirectory() as tmp:
+            db_path = Path(tmp) / "archive.sqlite3"
+            article = {
+                "id": "missing-fetched-at",
+                "title": "Samsung launches a new display phone",
+                "url": "https://example.com/display-phone",
+                "canonical_url": "https://example.com/display-phone",
+                "shorts_score": 80,
+            }
+
+            archive_articles([article], db_path=db_path)
+
+            con = sqlite3.connect(db_path)
+            row = con.execute(
+                "SELECT fetched_at, archived_at, payload_json FROM articles WHERE id = ?",
+                ("missing-fetched-at",),
+            ).fetchone()
+            con.close()
+
+            self.assertTrue(row[0])
+            self.assertEqual(row[0], row[1])
+            self.assertIn('"fetched_at"', row[2])
+
     def test_collect_ranked_news_archives_all_collected_articles_before_limit(self):
         import news.collector as collector
 
@@ -228,6 +254,10 @@ class NewsArchiveTests(unittest.TestCase):
                     }
                 )
             archive_articles(articles, db_path=db_path)
+            con = sqlite3.connect(db_path)
+            con.execute("UPDATE articles SET fetched_at = ''")
+            con.commit()
+            con.close()
             # A low-score article that has entered the lifecycle must not be pruned.
             mark_shorts_status(articles[-1], "selected", rank=5, db_path=db_path)
 
