@@ -1,7 +1,6 @@
 import os
 import random
 import zipfile
-import requests
 import platform
 from pathlib import Path
 
@@ -114,6 +113,8 @@ def fetch_songs() -> None:
 
         for download_url in download_urls:
             try:
+                import requests
+
                 response = requests.get(download_url, timeout=60)
                 response.raise_for_status()
 

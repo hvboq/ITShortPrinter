@@ -6,7 +6,6 @@ import textwrap
 from pathlib import Path
 from uuid import uuid4
 
-import requests
 from PIL import Image, ImageDraw, ImageFilter, ImageFont
 
 from config import ROOT_DIR
@@ -35,6 +34,8 @@ def download_image(image_url: str, images: list[str]) -> str | None:
     """Download an article image and persist it as a local PNG for MoviePy."""
     if not image_url:
         return None
+
+    import requests
 
     response = requests.get(image_url, timeout=30)
     response.raise_for_status()
