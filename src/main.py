@@ -54,6 +54,23 @@ def prompt_numbered_option(options: list[str], prompt: str = "Select an option: 
         print(f"Invalid input: choose a number from 1 to {len(options)}.")
 
 
+def prompt_upload_and_crosspost(youtube: YouTube) -> None:
+    """Prompt for YouTube upload and optional Post Bridge cross-post."""
+    upload_to_yt = question("Do you want to upload this video to YouTube? (Yes/No): ")
+    if upload_to_yt.lower() != "yes":
+        return
+
+    upload_success = youtube.upload_video()
+    if upload_success:
+        maybe_crosspost_youtube_short(
+            video_path=youtube.video_path,
+            title=youtube.metadata.get("title", ""),
+            interactive=True,
+        )
+    else:
+        warning("YouTube upload failed. Skipping Post Bridge cross-post.")
+
+
 def main():
     """Main entry point for the application, providing a menu-driven interface
     to manage YouTube, Twitter bots, Affiliate Marketing, and Outreach tasks.
@@ -180,31 +197,11 @@ def main():
                             print(colored(f" => Source: {top_news.get('url')}", "blue"))
 
                         youtube.generate_video_from_news(tts, top_news)
-                        upload_to_yt = question("Do you want to upload this video to YouTube? (Yes/No): ")
-                        if upload_to_yt.lower() == "yes":
-                            upload_success = youtube.upload_video()
-                            if upload_success:
-                                maybe_crosspost_youtube_short(
-                                    video_path=youtube.video_path,
-                                    title=youtube.metadata.get("title", ""),
-                                    interactive=True,
-                                )
-                            else:
-                                warning("YouTube upload failed. Skipping Post Bridge cross-post.")
+                        prompt_upload_and_crosspost(youtube)
                     elif user_input == 2:
                         tts = TTS()
                         youtube.generate_video(tts)
-                        upload_to_yt = question("Do you want to upload this video to YouTube? (Yes/No): ")
-                        if upload_to_yt.lower() == "yes":
-                            upload_success = youtube.upload_video()
-                            if upload_success:
-                                maybe_crosspost_youtube_short(
-                                    video_path=youtube.video_path,
-                                    title=youtube.metadata.get("title", ""),
-                                    interactive=True,
-                                )
-                            else:
-                                warning("YouTube upload failed. Skipping Post Bridge cross-post.")
+                        prompt_upload_and_crosspost(youtube)
                     elif user_input == 3:
                         videos = youtube.get_videos()
 
