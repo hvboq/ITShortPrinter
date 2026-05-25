@@ -61,7 +61,7 @@ class SubtitleFallbackTests(unittest.TestCase):
 
         self.assertEqual(youtube_subtitles.SUBTITLE_TEXT_FILL, (255, 255, 255, 255))
         self.assertEqual(youtube_subtitles.SUBTITLE_BACKGROUND_FILL[:3], (0, 0, 0))
-        self.assertGreaterEqual(youtube_subtitles.SUBTITLE_BACKGROUND_FILL[3], 200)
+        self.assertEqual(youtube_subtitles.SUBTITLE_BACKGROUND_FILL[3], 255)
 
 
 if __name__ == "__main__":

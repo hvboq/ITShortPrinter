@@ -16,11 +16,14 @@ from youtube_studio import capture_latest_video_url_from_shorts_page
 from youtube_studio import capture_video_url
 from youtube_studio import clean_description
 from youtube_studio import clean_title
-from youtube_studio import click_if_text
 from youtube_studio import click_publish_or_done
 from youtube_studio import fill_upload_metadata
+from youtube_studio import prepare_upload_video_file
 from youtube_studio import select_not_made_for_kids
 from youtube_studio import select_visibility
+from youtube_studio import studio_channel_url
+from youtube_studio import studio_upload_url
+from youtube_studio import verify_expected_studio_channel
 
 ROOT = project_root()
 PROFILE = youtube_firefox_profile()
@@ -38,6 +41,7 @@ UPLOAD_MANIFEST = Path(
 )
 SCREEN_DIR = Path(os.environ.get("UPLOAD_SCREEN_DIR", str(MANIFEST.parent / "upload_screens")))
 SCREEN_DIR.mkdir(parents=True, exist_ok=True)
+STAGING_DIR = Path(os.environ.get("UPLOAD_STAGING_DIR", str(MANIFEST.parent / "upload_files")))
 
 VISIBILITY = "unlisted"
 
@@ -57,26 +61,28 @@ results = []
 
 try:
     d.set_page_load_timeout(180)
-    d.get("https://studio.youtube.com/")
+    expected_channel_name = os.environ.get("EXPECTED_YOUTUBE_CHANNEL_NAME", "IT한 하루")
+    expected_channel_id = os.environ.get("EXPECTED_YOUTUBE_CHANNEL_ID", "UCcDkCUSZbX6EUPIqtVhRGyQ")
+    d.get(studio_channel_url(expected_channel_id))
     time.sleep(10)
-    body = d.find_element(By.TAG_NAME, "body").text
     print("STUDIO_TITLE=", d.title, flush=True)
     print("STUDIO_URL=", d.current_url, flush=True)
-    print("ACTIVE_IT_HAN_HARU=", "IT한 하루" in body, flush=True)
-    if "IT한 하루" not in body:
-        raise RuntimeError("Active Studio channel is not IT한 하루; aborting upload")
-    click_if_text(d, ("계속", "Continue"), timeout=3)
+    verify_expected_studio_channel(d, expected_channel_id, expected_channel_name)
 
     for item in data:
         rank = item["rank"]
-        video_path = item["video_path"]
         title = clean_title(
             item.get("metadata", {}).get("title") or item.get("article_title")
         )
+        if not title:
+            raise ValueError(f"Rank {rank} has no safe human-readable title")
+        video_path = prepare_upload_video_file(item["video_path"], title, STAGING_DIR)
         desc = clean_description(item.get("metadata", {}).get("description") or "")
         print(f"UPLOAD_{rank}_START|path={video_path}|title={title}", flush=True)
 
-        d.get(UPLOAD_URL)
+        d.get(studio_upload_url(expected_channel_id))
+        if "404" in d.title or "not found" in d.title.lower():
+            d.get(UPLOAD_URL)
         WebDriverWait(d, 120).until(
             EC.presence_of_element_located((By.TAG_NAME, "ytcp-uploads-file-picker"))
         )
@@ -113,6 +119,7 @@ try:
             "visibility": VISIBILITY,
             "uploaded_url": url,
             "screenshot": screenshot,
+            "source_video_path": item["video_path"],
         }
         results.append(result)
         UPLOAD_MANIFEST.write_text(

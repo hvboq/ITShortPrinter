@@ -5,7 +5,7 @@ from moviepy.editor import ImageClip
 from PIL import Image, ImageDraw, ImageFont
 
 
-SUBTITLE_BACKGROUND_FILL = (0, 0, 0, 210)
+SUBTITLE_BACKGROUND_FILL = (0, 0, 0, 255)
 SUBTITLE_TEXT_FILL = (255, 255, 255, 255)
 SUBTITLE_TEXT_STROKE_FILL = (0, 0, 0, 255)
 

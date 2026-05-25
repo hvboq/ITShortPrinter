@@ -907,6 +907,19 @@ class YouTube:
 
         return srt_path
 
+    def _safe_video_filename(self) -> str:
+        """Return a human-readable MP4 filename based on the video title."""
+        title = ""
+        if isinstance(getattr(self, "metadata", None), dict):
+            title = self.metadata.get("title") or ""
+        title = title or getattr(self, "subject", "") or "오늘의 IT 핵심 이슈"
+        title = self._clean_metadata_title(title)
+        title = re.sub(r'[<>:"/\\|?*\x00-\x1f]', " ", title)
+        title = re.sub(r"\s+", " ", title).strip(" .")
+        if not title:
+            title = "오늘의 IT 핵심 이슈"
+        return f"{title[:90]}.mp4"
+
     def combine(self) -> str:
         """
         Combines everything into the final video.
@@ -914,7 +927,7 @@ class YouTube:
         Returns:
             path (str): The path to the generated MP4 File.
         """
-        combined_image_path = os.path.join(ROOT_DIR, ".mp", str(uuid4()) + ".mp4")
+        combined_image_path = os.path.join(ROOT_DIR, ".mp", self._safe_video_filename())
         if not self.images:
             raise ValueError("Cannot combine video because no images were generated.")
         duration = youtube_composer.audio_duration(self.tts_path)

@@ -1,7 +1,10 @@
 from __future__ import annotations
 
+import shutil
 import re
 import time
+import unicodedata
+from pathlib import Path
 from typing import Iterable
 
 from selenium.webdriver.common.action_chains import ActionChains
@@ -10,8 +13,14 @@ from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
 
-SHORTS_CONTENT_URL = "https://studio.youtube.com/channel/UCcDkCUSZbX6EUPIqtVhRGyQ/videos/short"
+EXPECTED_IT_HAN_HARU_CHANNEL_ID = "UCcDkCUSZbX6EUPIqtVhRGyQ"
+EXPECTED_IT_HAN_HARU_CHANNEL_NAME = "IT한 하루"
+SHORTS_CONTENT_URL = f"https://studio.youtube.com/channel/{EXPECTED_IT_HAN_HARU_CHANNEL_ID}/videos/short"
 UPLOAD_URL = "https://www.youtube.com/upload"
+HEX_UUID_TITLE_RE = re.compile(
+    r"^(?:[0-9a-fA-F]{8}|[0-9a-fA-F]{8}[- ][0-9a-fA-F]{4}[- ][0-9a-fA-F]{4}[- ][0-9a-fA-F]{4}[- ][0-9a-fA-F]{12})(?:\.[A-Za-z0-9]+)?$"
+)
+INVALID_FILENAME_CHARS_RE = re.compile(r'[<>:"/\\|?*\x00-\x1f]')
 
 VISIBILITY_OPTIONS = {
     "public": {
@@ -28,7 +37,45 @@ VISIBILITY_OPTIONS = {
 
 
 def clean_title(value: str) -> str:
-    return re.sub(r"\s+", " ", (value or "")).strip()[:95]
+    title = re.sub(r"\s+", " ", (value or "")).strip()
+    if is_hex_uuid_title(title):
+        return ""
+    return title[:95]
+
+
+def is_hex_uuid_title(value: str) -> bool:
+    compact = re.sub(r"\s+", " ", (value or "")).strip()
+    return bool(HEX_UUID_TITLE_RE.match(compact))
+
+
+def safe_video_filename(title: str, suffix: str = ".mp4") -> str:
+    normalized = unicodedata.normalize("NFC", clean_title(title))
+    normalized = INVALID_FILENAME_CHARS_RE.sub(" ", normalized)
+    normalized = re.sub(r"\s+", " ", normalized).strip(" .")
+    if not normalized or is_hex_uuid_title(normalized):
+        raise ValueError("A human-readable non-hex video title is required for the upload filename")
+    return f"{normalized[:90]}{suffix}"
+
+
+def prepare_upload_video_file(video_path: str, title: str, staging_dir: str | Path) -> str:
+    """Copy the MP4 to a title-based filename so YouTube cannot prefill a UUID title."""
+    source = Path(video_path)
+    if not source.exists():
+        raise FileNotFoundError(f"Upload video not found: {source}")
+    staging = Path(staging_dir)
+    staging.mkdir(parents=True, exist_ok=True)
+    target = staging / safe_video_filename(title, source.suffix or ".mp4")
+    if source.resolve() != target.resolve():
+        shutil.copy2(source, target)
+    return str(target.resolve())
+
+
+def studio_channel_url(channel_id: str = EXPECTED_IT_HAN_HARU_CHANNEL_ID) -> str:
+    return f"https://studio.youtube.com/channel/{channel_id}"
+
+
+def studio_upload_url(channel_id: str = EXPECTED_IT_HAN_HARU_CHANNEL_ID) -> str:
+    return f"https://studio.youtube.com/channel/{channel_id}/videos/upload"
 
 
 def clean_description(value: str) -> str:
@@ -37,6 +84,30 @@ def clean_description(value: str) -> str:
 
 def body_text(driver) -> str:
     return driver.find_element(By.TAG_NAME, "body").text
+
+
+def has_identity_verification_gate(text: str) -> bool:
+    lowered = (text or "").lower()
+    return "본인 인증" in (text or "") or "verify it's you" in lowered or "verify your identity" in lowered
+
+
+def verify_expected_studio_channel(
+    driver,
+    expected_channel_id: str = EXPECTED_IT_HAN_HARU_CHANNEL_ID,
+    expected_channel_name: str = EXPECTED_IT_HAN_HARU_CHANNEL_NAME,
+) -> None:
+    text = body_text(driver)
+    active_channel_name = expected_channel_name in text
+    active_channel_id = f"/channel/{expected_channel_id}" in driver.current_url
+    print("ACTIVE_IT_HAN_HARU=", active_channel_name, flush=True)
+    print("ACTIVE_EXPECTED_CHANNEL_ID=", active_channel_id, flush=True)
+    if has_identity_verification_gate(text):
+        raise RuntimeError("YouTube Studio identity verification is still visible; aborting upload")
+    if not active_channel_id:
+        raise RuntimeError(
+            f"Active Studio channel is not the expected {expected_channel_name} channel "
+            f"({expected_channel_id}); aborting upload"
+        )
 
 
 def visible(element) -> bool:
@@ -83,17 +154,35 @@ def wait_click(driver, by, selector: str, timeout: int = 180):
 
 
 def set_textbox(element, value: str) -> None:
-    # YouTube may open hashtag/suggestion dropdowns that intercept normal clicks.
+    # YouTube's contenteditable fields often ignore Ctrl+A/send_keys updates
+    # for title changes. Use insertText + input/change events so Studio enables Save
+    # and does not keep the filename/UUID prefill as the published title.
+    script = """
+        const el = arguments[0], value = arguments[1];
+        el.scrollIntoView({block: "center"});
+        el.focus();
+        const selection = window.getSelection();
+        const range = document.createRange();
+        range.selectNodeContents(el);
+        selection.removeAllRanges();
+        selection.addRange(range);
+        document.execCommand("insertText", false, value);
+        el.dispatchEvent(new InputEvent("beforeinput", {bubbles:true, composed:true, inputType:"insertText", data:value}));
+        el.dispatchEvent(new InputEvent("input", {bubbles:true, composed:true, inputType:"insertText", data:value}));
+        el.dispatchEvent(new Event("change", {bubbles:true, composed:true}));
+        el.blur();
+        return el.innerText;
+    """
     try:
-        element.parent.execute_script(
-            'arguments[0].scrollIntoView({block:"center"}); arguments[0].click();',
-            element,
-        )
+        actual = element.parent.execute_script(script, element, value)
+        if re.sub(r"\s+", " ", actual or "").strip() == re.sub(r"\s+", " ", value or "").strip():
+            return
     except Exception:
-        element.click()
+        pass
 
-    time.sleep(0.3)
     try:
+        element.click()
+        time.sleep(0.3)
         element.send_keys(Keys.ESCAPE)
     except Exception:
         pass
@@ -118,9 +207,14 @@ def wait_for_upload_textboxes(driver, timeout: int = 180) -> list:
 
 
 def fill_upload_metadata(driver, title: str, description: str) -> None:
+    if not title or is_hex_uuid_title(title):
+        raise ValueError("Refusing to upload with an empty or UUID/hex-like title")
     textboxes = wait_for_upload_textboxes(driver)
     set_textbox(textboxes[0], title)
     set_textbox(textboxes[-1], description)
+    actual_title = re.sub(r"\s+", " ", textboxes[0].text or "").strip()
+    if actual_title != title:
+        raise RuntimeError(f"Upload title field did not persist: expected={title!r}, actual={actual_title!r}")
 
 
 def select_not_made_for_kids(driver) -> None:

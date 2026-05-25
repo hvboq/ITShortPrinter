@@ -101,6 +101,11 @@ _original_selenium_modules = install_fake_selenium()
 
 from youtube_studio import clean_description  # noqa: E402
 from youtube_studio import clean_title  # noqa: E402
+from youtube_studio import EXPECTED_IT_HAN_HARU_CHANNEL_ID  # noqa: E402
+from youtube_studio import is_hex_uuid_title  # noqa: E402
+from youtube_studio import safe_video_filename  # noqa: E402
+from youtube_studio import studio_channel_url  # noqa: E402
+from youtube_studio import studio_upload_url  # noqa: E402
 from youtube_studio import visibility_config  # noqa: E402
 
 restore_modules(_original_selenium_modules)
@@ -115,6 +120,23 @@ class YouTubeStudioHelperTests(unittest.TestCase):
         self.assertNotIn("\n", cleaned)
         self.assertNotIn("  ", cleaned)
         self.assertLessEqual(len(cleaned), 95)
+
+    def test_clean_title_rejects_uuid_prefill_titles(self):
+        self.assertTrue(is_hex_uuid_title("726602c6 9c2a 4a39 b94a 0715d2bcc695"))
+        self.assertEqual(clean_title("726602c6 9c2a 4a39 b94a 0715d2bcc695"), "")
+
+    def test_safe_video_filename_uses_human_title(self):
+        self.assertEqual(
+            safe_video_filename("스마트TV 데이터도 자연어로 분석한다"),
+            "스마트TV 데이터도 자연어로 분석한다.mp4",
+        )
+        with self.assertRaises(ValueError):
+            safe_video_filename("23bc7b7e 23cc 4e9d 95b7 385c39fc4397")
+
+    def test_it_han_haru_channel_urls_use_expected_channel_id(self):
+        self.assertEqual(EXPECTED_IT_HAN_HARU_CHANNEL_ID, "UCcDkCUSZbX6EUPIqtVhRGyQ")
+        self.assertIn(EXPECTED_IT_HAN_HARU_CHANNEL_ID, studio_channel_url())
+        self.assertIn(EXPECTED_IT_HAN_HARU_CHANNEL_ID, studio_upload_url())
 
     def test_clean_description_caps_length(self):
         self.assertEqual(len(clean_description("a" * 5000)), 4500)
