@@ -1,7 +1,5 @@
 import re
 
-import numpy as np
-from moviepy.editor import ImageClip
 from PIL import Image, ImageDraw, ImageFont
 
 
@@ -46,6 +44,79 @@ def format_srt_timestamp(seconds: float) -> str:
     secs = (total_millis % 60000) // 1000
     millis = total_millis % 1000
     return f"{hours:02d}:{minutes:02d}:{secs:02d},{millis:03d}"
+
+
+def speech_timing_weight(chunk: str) -> float:
+    """Estimate relative spoken duration for one subtitle chunk."""
+    compact = re.sub(r"\s+", "", str(chunk))
+    korean_or_alnum = re.findall(r"[가-힣A-Za-z0-9]", compact)
+    punctuation_pause = 0.7 * len(re.findall(r"[.?!。！？]", chunk))
+    comma_pause = 0.35 * len(re.findall(r"[,，、;:：]", chunk))
+    return max(1.0, len(korean_or_alnum) + punctuation_pause + comma_pause)
+
+
+def build_script_srt_content(
+    script: str,
+    duration_seconds: float,
+    max_chars: int = 24,
+) -> str:
+    """Build deterministic SRT content from a narration script."""
+    chunks = split_script_for_subtitles(script, max_chars=max_chars)
+    if not chunks:
+        raise ValueError("Cannot generate subtitle fallback because script is empty.")
+
+    total_duration = max(1.0, float(duration_seconds or 1.0))
+    weights = [speech_timing_weight(chunk) for chunk in chunks]
+    total_weight = sum(weights) or len(chunks)
+    raw_durations = [total_duration * weight / total_weight for weight in weights]
+
+    min_duration = 1.05
+    durations = [max(min_duration, duration) for duration in raw_durations]
+    overflow = sum(durations) - total_duration
+    if overflow > 0 and len(durations) > 1:
+        flexible = [max(0.0, duration - min_duration) for duration in durations]
+        flexible_total = sum(flexible)
+        if flexible_total > 0:
+            durations = [
+                duration - overflow * flex / flexible_total
+                for duration, flex in zip(durations, flexible)
+            ]
+
+    lines = []
+    cursor = 0.0
+    for idx, (chunk, duration) in enumerate(zip(chunks, durations), start=1):
+        start_seconds = cursor
+        end_seconds = (
+            total_duration
+            if idx == len(chunks)
+            else min(total_duration, cursor + duration)
+        )
+        cursor = end_seconds
+        lines.append(str(idx))
+        lines.append(
+            f"{format_srt_timestamp(start_seconds)} --> {format_srt_timestamp(end_seconds)}"
+        )
+        lines.append(chunk)
+        lines.append("")
+    return "\n".join(lines)
+
+
+def write_script_srt(
+    script: str,
+    srt_path: str,
+    duration_seconds: float,
+    max_chars: int = 24,
+) -> str:
+    """Write deterministic SRT subtitles from a narration script."""
+    with open(srt_path, "w", encoding="utf-8") as file:
+        file.write(
+            build_script_srt_content(
+                script,
+                duration_seconds=duration_seconds,
+                max_chars=max_chars,
+            )
+        )
+    return srt_path
 
 
 def parse_srt_timestamp(timestamp: str) -> float:
@@ -136,6 +207,9 @@ def render_subtitle_image(
 
 def create_subtitle_clips(srt_path: str, font_path: str) -> list:
     """Create MoviePy ImageClips for subtitles without ImageMagick TextClip."""
+    import numpy as np
+    from moviepy.editor import ImageClip
+
     clips = []
     for start, end, text in parse_srt_entries(srt_path):
         duration = max(0.1, end - start)
@@ -231,6 +305,9 @@ def render_title_overlay_image(
 
 def create_title_overlay_clip(text: str, font_path: str, duration: float):
     """Create a full-duration top title overlay clip."""
+    import numpy as np
+    from moviepy.editor import ImageClip
+
     image = render_title_overlay_image(text, font_path)
     return (
         ImageClip(np.array(image))

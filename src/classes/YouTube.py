@@ -661,50 +661,13 @@ class YouTube:
         much closer when each chunk's duration is proportional to text length, with
         small pauses for punctuation.
         """
-        chunks = self._split_script_for_subtitles(getattr(self, "script", ""), max_chars=max_chars)
-        if not chunks:
-            raise ValueError("Cannot generate subtitle fallback because script is empty.")
-
-        total_duration = max(1.0, float(duration_seconds or 1.0))
-
-        def speech_weight(chunk: str) -> float:
-            compact = re.sub(r"\s+", "", str(chunk))
-            korean_or_alnum = re.findall(r"[가-힣A-Za-z0-9]", compact)
-            punctuation_pause = 0.7 * len(re.findall(r"[.?!。！？]", chunk))
-            comma_pause = 0.35 * len(re.findall(r"[,，、;:：]", chunk))
-            return max(1.0, len(korean_or_alnum) + punctuation_pause + comma_pause)
-
-        weights = [speech_weight(chunk) for chunk in chunks]
-        total_weight = sum(weights) or len(chunks)
-        raw_durations = [total_duration * weight / total_weight for weight in weights]
-
-        # Avoid unreadably fast flashes while preserving total duration.
-        min_duration = 1.05
-        durations = [max(min_duration, duration) for duration in raw_durations]
-        overflow = sum(durations) - total_duration
-        if overflow > 0 and len(durations) > 1:
-            flexible = [max(0.0, duration - min_duration) for duration in durations]
-            flexible_total = sum(flexible)
-            if flexible_total > 0:
-                durations = [
-                    duration - overflow * flex / flexible_total
-                    for duration, flex in zip(durations, flexible)
-                ]
-
-        lines = []
-        cursor = 0.0
-        for idx, (chunk, duration) in enumerate(zip(chunks, durations), start=1):
-            start_seconds = cursor
-            end_seconds = total_duration if idx == len(chunks) else min(total_duration, cursor + duration)
-            cursor = end_seconds
-            lines.append(str(idx))
-            lines.append(f"{self._format_srt_timestamp(start_seconds)} --> {self._format_srt_timestamp(end_seconds)}")
-            lines.append(chunk)
-            lines.append("")
-
         srt_path = os.path.join(ROOT_DIR, ".mp", str(uuid4()) + ".srt")
-        with open(srt_path, "w", encoding="utf-8") as file:
-            file.write("\n".join(lines))
+        youtube_subtitles.write_script_srt(
+            getattr(self, "script", ""),
+            srt_path,
+            duration_seconds=duration_seconds,
+            max_chars=max_chars,
+        )
         if get_verbose():
             info(f' => Wrote script-timed subtitles to "{srt_path}"')
         return srt_path
