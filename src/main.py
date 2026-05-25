@@ -19,6 +19,41 @@ from llm_provider import list_models, select_model, get_active_model
 from news.collector import get_top_news
 from post_bridge_integration import maybe_crosspost_youtube_short
 
+
+def print_option_menu(options: list[str], title: str = "OPTIONS") -> None:
+    """Print a numbered CLI menu."""
+    info(f"\n============ {title} ============", False)
+
+    for idx, option in enumerate(options):
+        print(colored(f" {idx + 1}. {option}", "cyan"))
+
+    info("=================================\n", False)
+
+
+def prompt_numbered_option(options: list[str], prompt: str = "Select an option: ") -> int:
+    """Prompt until the user selects a valid numbered option."""
+    while True:
+        print_option_menu(options)
+        raw = input(prompt).strip()
+        if raw == "":
+            print("\n" * 100)
+            print("Invalid input: Empty input is not allowed.")
+            continue
+
+        try:
+            selected = int(raw)
+        except ValueError as exc:
+            print("\n" * 100)
+            print(f"Invalid input: {exc}")
+            continue
+
+        if 1 <= selected <= len(options):
+            return selected
+
+        print("\n" * 100)
+        print(f"Invalid input: choose a number from 1 to {len(options)}.")
+
+
 def main():
     """Main entry point for the application, providing a menu-driven interface
     to manage YouTube, Twitter bots, Affiliate Marketing, and Outreach tasks.
@@ -42,28 +77,7 @@ def main():
     Returns:
         None"""
 
-    # Get user input
-    # user_input = int(question("Select an option: "))
-    valid_input = False
-    while not valid_input:
-        try:
-    # Show user options
-            info("\n============ OPTIONS ============", False)
-
-            for idx, option in enumerate(OPTIONS):
-                print(colored(f" {idx + 1}. {option}", "cyan"))
-
-            info("=================================\n", False)
-            user_input = input("Select an option: ").strip()
-            if user_input == '':
-                print("\n" * 100)
-                raise ValueError("Empty input is not allowed.")
-            user_input = int(user_input)
-            valid_input = True
-        except ValueError as e:
-            print("\n" * 100)
-            print(f"Invalid input: {e}")
-
+    user_input = prompt_numbered_option(OPTIONS)
 
     # Start the selected option
     if user_input == 1:
@@ -150,18 +164,10 @@ def main():
 
                 while True:
                     rem_temp_files()
-                    info("\n============ OPTIONS ============", False)
-
-                    for idx, youtube_option in enumerate(YOUTUBE_OPTIONS):
-                        print(colored(f" {idx + 1}. {youtube_option}", "cyan"))
-
-                    info("=================================\n", False)
-
-                    # Get user input
-                    user_input = int(question("Select an option: "))
-                    tts = TTS()
+                    user_input = prompt_numbered_option(YOUTUBE_OPTIONS)
 
                     if user_input == 1:
+                        tts = TTS()
                         top_news = get_top_news()
                         if not top_news:
                             warning("No ranked tech news found. Try again later or check RSS/network settings.")
@@ -186,6 +192,7 @@ def main():
                             else:
                                 warning("YouTube upload failed. Skipping Post Bridge cross-post.")
                     elif user_input == 2:
+                        tts = TTS()
                         youtube.generate_video(tts)
                         upload_to_yt = question("Do you want to upload this video to YouTube? (Yes/No): ")
                         if upload_to_yt.lower() == "yes":
@@ -217,14 +224,10 @@ def main():
                             warning(" No videos found.")
                     elif user_input == 4:
                         info("How often do you want to upload?")
-
-                        info("\n============ OPTIONS ============", False)
-                        for idx, cron_option in enumerate(YOUTUBE_CRON_OPTIONS):
-                            print(colored(f" {idx + 1}. {cron_option}", "cyan"))
-
-                        info("=================================\n", False)
-
-                        user_input = int(question("Select an Option: "))
+                        user_input = prompt_numbered_option(
+                            YOUTUBE_CRON_OPTIONS,
+                            "Select an Option: ",
+                        )
 
                         cron_script_path = os.path.join(ROOT_DIR, "src", "cron.py")
                         command = ["python", cron_script_path, "youtube", selected_account['id'], get_active_model()]
@@ -318,16 +321,7 @@ def main():
                 twitter = Twitter(selected_account["id"], selected_account["nickname"], selected_account["firefox_profile"], selected_account["topic"])
 
                 while True:
-                    
-                    info("\n============ OPTIONS ============", False)
-
-                    for idx, twitter_option in enumerate(TWITTER_OPTIONS):
-                        print(colored(f" {idx + 1}. {twitter_option}", "cyan"))
-
-                    info("=================================\n", False)
-
-                    # Get user input
-                    user_input = int(question("Select an option: "))
+                    user_input = prompt_numbered_option(TWITTER_OPTIONS)
 
                     if user_input == 1:
                         twitter.post()
@@ -348,14 +342,10 @@ def main():
                         print(posts_table)
                     elif user_input == 3:
                         info("How often do you want to post?")
-
-                        info("\n============ OPTIONS ============", False)
-                        for idx, cron_option in enumerate(TWITTER_CRON_OPTIONS):
-                            print(colored(f" {idx + 1}. {cron_option}", "cyan"))
-
-                        info("=================================\n", False)
-
-                        user_input = int(question("Select an Option: "))
+                        user_input = prompt_numbered_option(
+                            TWITTER_CRON_OPTIONS,
+                            "Select an Option: ",
+                        )
 
                         cron_script_path = os.path.join(ROOT_DIR, "src", "cron.py")
                         command = ["python", cron_script_path, "twitter", selected_account['id'], get_active_model()]
