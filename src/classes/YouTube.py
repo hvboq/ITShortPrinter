@@ -2,6 +2,7 @@ import re
 import json
 import time
 import os
+from types import SimpleNamespace
 
 from utils import *
 from cache import *
@@ -20,13 +21,21 @@ from . import youtube_visuals
 from . import youtube_subtitles
 from . import youtube_composer
 from typing import List
-from selenium import webdriver
-from selenium.webdriver.common.by import By
-from selenium.webdriver.firefox.service import Service
-from selenium.webdriver.firefox.options import Options
-from webdriver_manager.firefox import GeckoDriverManager
 from datetime import datetime
 from PIL import Image
+
+try:
+    from selenium import webdriver
+    from selenium.webdriver.common.by import By
+    from selenium.webdriver.firefox.service import Service
+    from selenium.webdriver.firefox.options import Options
+    from webdriver_manager.firefox import GeckoDriverManager
+except ModuleNotFoundError:
+    webdriver = SimpleNamespace(Firefox=None)
+    By = SimpleNamespace(TAG_NAME="tag name", ID="id", NAME="name", XPATH="xpath")
+    Service = None
+    Options = None
+    GeckoDriverManager = None
 
 if not hasattr(Image, "ANTIALIAS"):
     Image.ANTIALIAS = Image.Resampling.LANCZOS
@@ -83,6 +92,12 @@ class YouTube:
 
         if not init_browser:
             return
+
+        if Options is None or Service is None or GeckoDriverManager is None or webdriver.Firefox is None:
+            raise RuntimeError(
+                "Selenium and webdriver_manager are required for YouTube upload automation. "
+                "Install project dependencies or use YouTube.for_local_generation()."
+            )
 
         # Initialize the Firefox profile
         self.options: Options = Options()

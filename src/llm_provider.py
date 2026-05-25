@@ -1,11 +1,14 @@
 import subprocess
 
-import requests
-
 try:
     import ollama
 except ImportError:
     ollama = None
+
+try:
+    import requests
+except ModuleNotFoundError:
+    requests = None
 
 from config import get_nanobanana2_api_base_url
 from config import get_nanobanana2_api_key
@@ -120,6 +123,11 @@ def _generate_text_with_gemini(prompt: str, model_name: str) -> str:
         raise RuntimeError(
             "No Google API key configured. Set 'nanobanana2_api_key' or 'GEMINI_API_KEY'."
         )
+
+    global requests
+    if requests is None:
+        import requests as requests_module
+        requests = requests_module
 
     base_url = get_nanobanana2_api_base_url().rstrip("/")
     endpoint = f"{base_url}/models/{model_name}:generateContent"

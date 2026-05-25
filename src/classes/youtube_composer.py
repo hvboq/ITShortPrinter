@@ -3,16 +3,6 @@ from __future__ import annotations
 import os
 from collections.abc import Callable, Sequence
 
-from moviepy.editor import (
-    AudioFileClip,
-    CompositeAudioClip,
-    CompositeVideoClip,
-    ImageClip,
-    afx,
-    concatenate_videoclips,
-)
-from moviepy.video.fx.all import crop
-
 
 SHORTS_ASPECT_RATIO = 9 / 16
 SHORTS_FRAME_SIZE = (1080, 1920)
@@ -22,6 +12,8 @@ DEFAULT_AUDIO_FPS = 44100
 
 def audio_duration(audio_path: str) -> float:
     """Return an audio file duration in seconds without leaking a MoviePy handle."""
+    from moviepy.editor import AudioFileClip
+
     clip = AudioFileClip(audio_path)
     try:
         return float(clip.duration)
@@ -52,6 +44,8 @@ def _resize_to_shorts_frame(
     info_callback: Callable[[str], None] | None = None,
 ):
     """Crop an image clip to a 9:16 center crop and resize it to Shorts format."""
+    from moviepy.video.fx.all import crop
+
     if round((image_clip.w / image_clip.h), 4) < SHORTS_ASPECT_RATIO:
         if verbose:
             _log_info(info_callback, f" => Resizing Image: {image_path} to 1080x1920")
@@ -83,6 +77,8 @@ def create_image_sequence(
     info_callback: Callable[[str], None] | None = None,
 ) -> list:
     """Build repeated image clips long enough to cover the narration duration."""
+    from moviepy.editor import ImageClip
+
     if not image_paths:
         raise ValueError("Cannot compose video because no images were provided.")
     if duration <= 0:
@@ -124,6 +120,14 @@ def compose_short_video(
     info_callback: Callable[[str], None] | None = None,
 ) -> str:
     """Compose the final vertical video from images, narration, music, and overlays."""
+    from moviepy.editor import (
+        AudioFileClip,
+        CompositeAudioClip,
+        CompositeVideoClip,
+        afx,
+        concatenate_videoclips,
+    )
+
     os.makedirs(os.path.dirname(output_path), exist_ok=True)
 
     tts_clip = AudioFileClip(tts_path)
