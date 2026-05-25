@@ -6,6 +6,7 @@ import re
 import sys
 from pathlib import Path
 
+import _bootstrap  # noqa: F401
 from moviepy.editor import VideoFileClip
 from news.archive import mark_shorts_status
 from news.collector import collect_ranked_news

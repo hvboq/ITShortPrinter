@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import time
 
+import _bootstrap  # noqa: F401
 from classes.YouTube import YouTube
 from project_paths import project_root, youtube_firefox_profile
 from youtube_studio import SHORTS_CONTENT_URL

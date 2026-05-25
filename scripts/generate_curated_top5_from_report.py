@@ -4,6 +4,7 @@ import json
 import re
 from pathlib import Path
 
+import _bootstrap  # noqa: F401
 from moviepy.editor import VideoFileClip
 from news.archive import mark_shorts_status
 from classes.YouTube import YouTube

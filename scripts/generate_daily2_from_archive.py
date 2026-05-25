@@ -5,6 +5,7 @@ import re
 import sqlite3
 from pathlib import Path
 
+import _bootstrap  # noqa: F401
 from moviepy.editor import VideoFileClip
 
 from classes.Tts import TTS

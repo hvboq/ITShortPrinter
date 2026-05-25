@@ -5,6 +5,7 @@ import os
 import time
 from pathlib import Path
 
+import _bootstrap  # noqa: F401
 from classes.YouTube import YouTube
 from news.archive import mark_shorts_status
 from project_paths import project_root, youtube_firefox_profile

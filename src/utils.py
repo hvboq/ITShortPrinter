@@ -3,11 +3,26 @@ import random
 import zipfile
 import requests
 import platform
+from pathlib import Path
 
 from status import *
 from config import *
 
 DEFAULT_SONG_ARCHIVE_URLS = []
+TEMP_MEDIA_EXTENSIONS = {
+    ".aac",
+    ".flac",
+    ".jpeg",
+    ".jpg",
+    ".m4a",
+    ".mp3",
+    ".mp4",
+    ".ogg",
+    ".png",
+    ".srt",
+    ".wav",
+    ".webp",
+}
 
 
 def close_running_selenium_instances() -> None:
@@ -47,19 +62,22 @@ def build_url(youtube_video_id: str) -> str:
 
 def rem_temp_files() -> None:
     """
-    Removes temporary files in the `.mp` directory.
+    Removes top-level temporary media files in the `.mp` directory.
+
+    Operational folders such as batch manifests, upload screenshots, script
+    reviews, and queued Hermes images are kept intact.
 
     Returns:
         None
     """
-    # Path to the `.mp` directory
     mp_dir = os.path.join(ROOT_DIR, ".mp")
+    os.makedirs(mp_dir, exist_ok=True)
 
-    files = os.listdir(mp_dir)
-
-    for file in files:
-        if not file.endswith(".json"):
-            os.remove(os.path.join(mp_dir, file))
+    for entry in os.scandir(mp_dir):
+        if not entry.is_file():
+            continue
+        if Path(entry.name).suffix.lower() in TEMP_MEDIA_EXTENSIONS:
+            os.remove(entry.path)
 
 
 def fetch_songs() -> None:

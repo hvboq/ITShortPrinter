@@ -5,6 +5,7 @@ import os
 import time
 from pathlib import Path
 
+import _bootstrap  # noqa: F401
 from classes.YouTube import YouTube
 from project_paths import project_root, youtube_firefox_profile
 from selenium.webdriver.common.by import By
