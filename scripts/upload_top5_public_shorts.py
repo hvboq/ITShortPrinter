@@ -112,9 +112,11 @@ try:
         desc = clean_description(item.get("metadata", {}).get("description") or "")
         print(f"UPLOAD_{rank}_START|path={video_path}|title={title}", flush=True)
 
-        d.get(studio_upload_url(expected_channel_id))
-        if "404" in d.title or "not found" in d.title.lower():
-            d.get(UPLOAD_URL)
+        # YouTube Studio's channel-scoped /videos/upload route can land on the
+        # content list without opening the upload dialog. The public upload
+        # entry point redirects back to the expected channel with d=ud and shows
+        # the file picker.
+        d.get(UPLOAD_URL)
         WebDriverWait(d, 120).until(
             EC.presence_of_element_located((By.TAG_NAME, "ytcp-uploads-file-picker"))
         )

@@ -122,7 +122,9 @@ class YouTube:
                 )
 
         self.options.page_load_strategy = "eager"
-        firefox_binary = "/opt/firefox-latest/firefox"
+        firefox_binary = os.environ.get("YOUTUBE_FIREFOX_BINARY", "").strip()
+        if not firefox_binary:
+            firefox_binary = "/opt/firefox-latest/firefox"
         if os.path.exists(firefox_binary):
             self.options.binary_location = firefox_binary
 
