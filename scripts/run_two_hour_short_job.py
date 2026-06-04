@@ -14,7 +14,12 @@ if str(SRC) not in sys.path:
     sys.path.insert(0, str(SRC))
 
 from news.collector import collect_ranked_news  # noqa: E402
-from news.ranker import select_portfolio_articles  # noqa: E402
+from news.ranker import (  # noqa: E402
+    LAUNCH_TERMS,
+    _contains_any,
+    classify_event,
+    select_portfolio_articles,
+)
 
 JOB_DIR = ROOT / ".mp" / "two_hour_job"
 LOCK_FILE = JOB_DIR / "run.lock"
@@ -52,6 +57,46 @@ def _article_to_dict(article: Any) -> dict[str, Any]:
     }
 
 
+def _article_text(article: Any) -> str:
+    return " ".join(
+        str(_article_get(article, key, "") or "")
+        for key in ("title", "raw_excerpt", "content_summary", "summary", "description")
+    ).lower()
+
+
+def _article_event_type(article: Any) -> str:
+    event_type = str(_article_get(article, "event_type", "") or "").strip()
+    if event_type:
+        return event_type
+    data = _article_to_dict(article)
+    return classify_event(data, _article_text(article))
+
+
+def matches_requested_topic(article: Any, topic: str) -> bool:
+    """Return whether an article matches a scheduled specialty topic."""
+    normalized = topic.strip().lower()
+    if not normalized or normalized in {"any", "all", "general"}:
+        return True
+    if normalized not in {"product_launch", "launch", "new_product"}:
+        raise ValueError(
+            "SHORTS_JOB_TOPIC must be empty/any or product_launch"
+        )
+
+    text = _article_text(article)
+    event_type = _article_event_type(article)
+    if event_type == "product_launch":
+        return True
+    # Launch/release stories with price or availability words are often scored as
+    # price_availability because the ranker checks those terms first. They still
+    # satisfy the 13:00 slot requirement when a launch term is present.
+    if event_type == "price_availability" and _contains_any(text, LAUNCH_TERMS):
+        return True
+    return _contains_any(text, LAUNCH_TERMS) and not _contains_any(
+        text,
+        ["rumor", "leak", "루머", "유출", "concept", "prototype", "특허"],
+    )
+
+
 def load_upload_history() -> list[dict[str, Any]]:
     if not UPLOAD_HISTORY.exists():
         return []
@@ -63,7 +108,7 @@ def load_upload_history() -> list[dict[str, Any]]:
     return data if isinstance(data, list) else []
 
 
-def select_next_article(limit: int) -> Any:
+def select_next_article(limit: int, topic: str = "") -> Any:
     articles = collect_ranked_news(limit=limit)
     history = load_upload_history()
     used_urls = {
@@ -92,11 +137,20 @@ def select_next_article(limit: int) -> Any:
         if title and title in used_titles:
             print(f"SKIP_ALREADY_UPLOADED|match=title|title={_article_get(article, 'title', '')}", flush=True)
             continue
+        if topic and not matches_requested_topic(article, topic):
+            print(
+                "SKIP_TOPIC_MISMATCH|"
+                f"topic={topic}|event_type={_article_event_type(article)}|"
+                f"title={_article_get(article, 'title', '')}",
+                flush=True,
+            )
+            continue
         candidates.append(article)
 
     selected = select_portfolio_articles(candidates, count=1)
     if not selected:
-        raise RuntimeError("No unused Shorts-friendly article candidates found")
+        topic_suffix = f" for topic={topic}" if topic else ""
+        raise RuntimeError(f"No unused Shorts-friendly article candidates found{topic_suffix}")
     return selected[0]
 
 
@@ -183,7 +237,10 @@ def run_job() -> int:
 
     dry_run = os.environ.get("SHORTS_JOB_DRY_RUN", "").strip().lower() in {"1", "true", "yes"}
     news_limit = int(os.environ.get("NEWS_LIMIT", "50"))
-    article = select_next_article(limit=news_limit)
+    topic = os.environ.get("SHORTS_JOB_TOPIC", "").strip()
+    if topic:
+        print(f"SHORTS_JOB_TOPIC={topic}", flush=True)
+    article = select_next_article(limit=news_limit, topic=topic)
     print(f"SELECTED_ARTICLE={_article_get(article, 'title', '')}", flush=True)
     print(f"SELECTED_URL={_article_get(article, 'url', '')}", flush=True)
 
