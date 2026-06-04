@@ -20,6 +20,11 @@ niche.txt
 auto.sh
 .DS_Store
 
+# Agent/local workflow artifacts; do not publish internal plans or tool downloads.
+.hermes/
+tools/geckodriver/
+tools/**/*.zip
+
 # Local font files may be proprietary (e.g. Windows Malgun Gothic); do not redistribute.
 fonts/*.ttf
 fonts/*.ttc
