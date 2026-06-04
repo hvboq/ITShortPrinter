@@ -101,7 +101,6 @@ _original_selenium_modules = install_fake_selenium()
 
 from youtube_studio import clean_description  # noqa: E402
 from youtube_studio import clean_title  # noqa: E402
-from youtube_studio import EXPECTED_IT_HAN_HARU_CHANNEL_ID  # noqa: E402
 from youtube_studio import is_hex_uuid_title  # noqa: E402
 from youtube_studio import safe_video_filename  # noqa: E402
 from youtube_studio import studio_channel_url  # noqa: E402
@@ -133,10 +132,11 @@ class YouTubeStudioHelperTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             safe_video_filename("23bc7b7e 23cc 4e9d 95b7 385c39fc4397")
 
-    def test_it_han_haru_channel_urls_use_expected_channel_id(self):
-        self.assertEqual(EXPECTED_IT_HAN_HARU_CHANNEL_ID, "UCcDkCUSZbX6EUPIqtVhRGyQ")
-        self.assertIn(EXPECTED_IT_HAN_HARU_CHANNEL_ID, studio_channel_url())
-        self.assertIn(EXPECTED_IT_HAN_HARU_CHANNEL_ID, studio_upload_url())
+    def test_channel_urls_accept_optional_configured_channel_id(self):
+        self.assertEqual(studio_channel_url(), "https://studio.youtube.com")
+        self.assertEqual(studio_upload_url(), "https://studio.youtube.com/videos/upload")
+        self.assertIn("UCexample", studio_channel_url("UCexample"))
+        self.assertIn("UCexample", studio_upload_url("UCexample"))
 
     def test_clean_description_caps_length(self):
         self.assertEqual(len(clean_description("a" * 5000)), 4500)

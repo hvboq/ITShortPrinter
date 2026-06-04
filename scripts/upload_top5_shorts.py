@@ -7,6 +7,7 @@ from pathlib import Path
 
 import _bootstrap  # noqa: F401
 from classes.YouTube import YouTube
+from config import get_youtube_channel_config
 from project_paths import project_root, youtube_firefox_profile
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support import expected_conditions as EC
@@ -56,14 +57,15 @@ start_rank = int(os.environ.get("START_RANK", "1"))
 end_rank = int(os.environ.get("END_RANK", "999"))
 data = [item for item in data if start_rank <= int(item.get("rank", 0)) <= end_rank]
 print("UPLOAD_RANK_RANGE=", start_rank, end_rank, "COUNT=", len(data), flush=True)
-y = YouTube("it-han-haru", "IT한 하루", PROFILE, "Korean IT News", "Korean")
+channel_config = get_youtube_channel_config()
+y = YouTube(channel_config["slug"], channel_config["name"], PROFILE, "Korean IT News", "Korean")
 d = y.browser
 results = []
 
 try:
     d.set_page_load_timeout(180)
-    expected_channel_name = os.environ.get("EXPECTED_YOUTUBE_CHANNEL_NAME", "IT한 하루")
-    expected_channel_id = os.environ.get("EXPECTED_YOUTUBE_CHANNEL_ID", "UCcDkCUSZbX6EUPIqtVhRGyQ")
+    expected_channel_name = os.environ.get("EXPECTED_YOUTUBE_CHANNEL_NAME", channel_config["name"])
+    expected_channel_id = os.environ.get("EXPECTED_YOUTUBE_CHANNEL_ID", channel_config["id"])
     d.get(studio_channel_url(expected_channel_id))
     time.sleep(10)
     print("STUDIO_TITLE=", d.title, flush=True)

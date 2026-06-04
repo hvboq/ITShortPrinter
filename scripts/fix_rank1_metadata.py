@@ -6,6 +6,7 @@ import time
 
 import _bootstrap  # noqa: F401
 from classes.YouTube import YouTube
+from config import get_youtube_channel_config
 from project_paths import project_root, youtube_firefox_profile
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
@@ -57,7 +58,8 @@ def click_save(d):
     print('SAVE_DEBUG=', [(b.get_attribute('id'),b.text,b.get_attribute('aria-disabled'),b.get_attribute('disabled')) for b in buttons], flush=True)
     return False
 
-y=YouTube('it-han-haru','IT한 하루',PROFILE,'Korean IT News','Korean')
+channel_config = get_youtube_channel_config()
+y=YouTube(channel_config['slug'], channel_config['name'],PROFILE,'Korean IT News','Korean')
 d=y.browser
 try:
     d.set_page_load_timeout(180)
@@ -65,7 +67,8 @@ try:
     WebDriverWait(d,180).until(lambda drv: len(drv.find_elements(By.ID,'textbox'))>=2)
     time.sleep(8)
     body=d.find_element(By.TAG_NAME,'body').text
-    print('ACTIVE_IT_HAN_HARU=', 'IT한 하루' in body, flush=True)
+    expected_name = channel_config['name']
+    print('ACTIVE_EXPECTED_CHANNEL=', bool(expected_name) and expected_name in body, flush=True)
     textboxes=d.find_elements(By.ID,'textbox')
     set_textbox(d, textboxes[0], title)
     set_textbox(d, textboxes[-1], desc)

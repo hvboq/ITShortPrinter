@@ -95,7 +95,7 @@ RESEARCH_TERMS = ["research", "study", "prototype", "concept", "begins", "early"
 CERTIFICATION_TERMS = ["certification", "fcc", "bluetooth sig", "wi-fi alliance", "인증", "특허", "patent"]
 NOISE_TERMS = ["coupon", "deal", "discount", "sponsored", "할인", "광고", "earnings", "dividend"]
 
-# Learned from live IT한 하루 channel analytics (2026-05-07):
+# Learned from live configured channel analytics (2026-05-07):
 # - Ranking/TOP-list formats and A-vs-B comparisons over smartphone/foldable topics
 #   have shown the strongest early view/retention signals.
 # - AI development/engineering topics create scope drift, but AI service/model launches

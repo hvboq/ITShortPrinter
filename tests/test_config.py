@@ -78,6 +78,72 @@ class PostBridgeConfigTests(unittest.TestCase):
         self.assertEqual(post_bridge_config["platforms"], ["tiktok", "instagram"])
         self.assertEqual(post_bridge_config["account_ids"], [])
         self.assertFalse(post_bridge_config["enabled"])
+    def test_youtube_channel_config_uses_config_values(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            self.write_config(
+                temp_dir,
+                {
+                    "youtube_channel": {
+                        "slug": "configured-slug",
+                        "name": "Configured Channel",
+                        "id": "UCconfigured",
+                    }
+                },
+            )
+
+            with patch.object(config, "ROOT_DIR", temp_dir), patch.dict(os.environ, {}, clear=True):
+                youtube_config = config.get_youtube_channel_config()
+
+        self.assertEqual(
+            youtube_config,
+            {
+                "slug": "configured-slug",
+                "name": "Configured Channel",
+                "id": "UCconfigured",
+            },
+        )
+
+    def test_youtube_channel_env_overrides_config_values(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            self.write_config(
+                temp_dir,
+                {
+                    "youtube_channel": {
+                        "slug": "configured-slug",
+                        "name": "Configured Channel",
+                        "id": "UCconfigured",
+                    }
+                },
+            )
+
+            with patch.object(config, "ROOT_DIR", temp_dir), patch.dict(
+                os.environ,
+                {
+                    "YOUTUBE_CHANNEL_SLUG": "env-slug",
+                    "YOUTUBE_CHANNEL_NAME": "Env Channel",
+                    "YOUTUBE_CHANNEL_ID": "UCenv",
+                },
+                clear=True,
+            ):
+                youtube_config = config.get_youtube_channel_config()
+
+        self.assertEqual(
+            youtube_config,
+            {
+                "slug": "env-slug",
+                "name": "Env Channel",
+                "id": "UCenv",
+            },
+        )
+
+    def test_youtube_channel_config_defaults_without_personal_identifiers(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            self.write_config(temp_dir, {})
+
+            with patch.object(config, "ROOT_DIR", temp_dir), patch.dict(os.environ, {}, clear=True):
+                youtube_config = config.get_youtube_channel_config()
+
+        self.assertEqual(youtube_config, {"slug": "youtube-channel", "name": "", "id": ""})
 
 
 if __name__ == "__main__":

@@ -10,6 +10,7 @@ SRC_DIR = PROJECT_ROOT / "src"
 if str(SRC_DIR) not in sys.path:
     sys.path.insert(0, str(SRC_DIR))
 
+from config import get_youtube_channel_config  # noqa: E402
 from youtube_api.auth import (  # noqa: E402
     CLIENT_SECRET_PATH,
     READONLY_SCOPES,
@@ -17,8 +18,6 @@ from youtube_api.auth import (  # noqa: E402
     print_token_status,
     youtube_data_service,
 )
-
-EXPECTED_CHANNEL_ID = "UCcDkCUSZbX6EUPIqtVhRGyQ"
 
 
 def main() -> int:
@@ -52,16 +51,22 @@ def main() -> int:
     print(json.dumps({"channels": compact}, ensure_ascii=False, indent=2))
 
     active_ids = {item.get("id") for item in items}
-    if EXPECTED_CHANNEL_ID not in active_ids:
+    channel_config = get_youtube_channel_config()
+    expected_channel_id = channel_config["id"]
+    expected_channel_name = channel_config["name"]
+    if expected_channel_id and expected_channel_id not in active_ids:
         print(
-            "\nWARNING: OAuth succeeded, but the authorized channel does not look like "
-            f"IT한 하루 ({EXPECTED_CHANNEL_ID})."
+            "\nWARNING: OAuth succeeded, but the authorized channel does not match "
+            f"the configured channel ({expected_channel_id})."
         )
         print("If this is the wrong Google/brand channel, delete the token and rerun OAuth:")
         print("  rm -f secrets/youtube_oauth_token.json")
         return 3
 
-    print("\nOK: Authorized channel matches IT한 하루.")
+    if expected_channel_id:
+        print(f"\nOK: Authorized channel matches configured channel {expected_channel_name}.")
+    else:
+        print("\nOK: OAuth succeeded. Set YOUTUBE_CHANNEL_ID to enforce channel identity checks.")
     print_token_status()
     return 0
 

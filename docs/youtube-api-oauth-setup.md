@@ -15,7 +15,7 @@ Create an OAuth client in Google Cloud Console:
 
 1. APIs & Services → OAuth consent screen
    - User type: External is fine for a personal/test project.
-   - Add the Google account that owns/has access to `IT한 하루` as a test user if the app is in Testing mode.
+   - Add the Google account that owns/has access to the configured YouTube channel as a test user if the app is in Testing mode.
 2. APIs & Services → Credentials → Create Credentials → OAuth client ID
    - Application type: **Desktop app**
    - Download the JSON.
@@ -58,7 +58,7 @@ The script opens a local OAuth browser flow and saves the refresh token to:
 If the browser does not open automatically, copy the printed URL into the logged-in Firefox profile used for the YouTube channel. The script verifies the authorized channel is:
 
 ```text
-IT한 하루 / UCcDkCUSZbX6EUPIqtVhRGyQ
+`YOUTUBE_CHANNEL_NAME` / `YOUTUBE_CHANNEL_ID`
 ```
 
 If the wrong Google/brand channel is authorized:

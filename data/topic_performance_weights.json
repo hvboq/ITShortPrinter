@@ -1,5 +1,5 @@
 {
-  "description": "Adaptive Shorts ranking weights derived from IT한 하루 YouTube performance reviews. Keep values modest to avoid overfitting small samples.",
+  "description": "Adaptive Shorts ranking weights derived from configured YouTube channel performance reviews. Keep values modest to avoid overfitting small samples.",
   "topic_buckets": {
     "ranking_comparison": 3,
     "smartphone_foldable": 2,

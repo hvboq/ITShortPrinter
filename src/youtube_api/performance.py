@@ -7,12 +7,12 @@ from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Iterable
 
+from config import get_youtube_channel_config
 from youtube_api.auth import get_credentials, youtube_analytics_service, youtube_data_service
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 UPLOAD_HISTORY_PATH = PROJECT_ROOT / "data" / "upload_history.json"
 REPORTS_DIR = PROJECT_ROOT / "reports" / "youtube"
-EXPECTED_CHANNEL_ID = "UCcDkCUSZbX6EUPIqtVhRGyQ"
 
 VIDEO_ID_RE = re.compile(r"(?:shorts/|watch\?v=|youtu\.be/)([A-Za-z0-9_-]{6,})")
 ISO_DURATION_RE = re.compile(
@@ -85,8 +85,9 @@ def get_channel_summary(youtube=None) -> dict[str, Any]:
     if not channels:
         raise RuntimeError("No YouTube channel returned for authorized account.")
     active = None
+    expected_channel_id = get_youtube_channel_config()["id"]
     for item in channels:
-        if item.get("id") == EXPECTED_CHANNEL_ID:
+        if expected_channel_id and item.get("id") == expected_channel_id:
             active = item
             break
     active = active or channels[0]
@@ -104,7 +105,7 @@ def get_channel_summary(youtube=None) -> dict[str, Any]:
             "hiddenSubscriberCount": bool(stats.get("hiddenSubscriberCount", False)),
         },
         "uploads_playlist": related.get("uploads"),
-        "expected_channel_match": active.get("id") == EXPECTED_CHANNEL_ID,
+        "expected_channel_match": bool(expected_channel_id) and active.get("id") == expected_channel_id,
     }
 
 

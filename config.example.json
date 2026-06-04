@@ -78,6 +78,11 @@
     "account_ids": [],
     "auto_crosspost": false
   },
+  "youtube_channel": {
+    "slug": "",
+    "name": "",
+    "id": ""
+  },
   "text_provider": "hermes",
   "hermes_model": "gpt-5.5"
 }

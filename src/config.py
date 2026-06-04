@@ -603,6 +603,34 @@ def get_news_pipeline_config() -> dict:
         "scoring_weights": scoring_weights,
     }
 
+def get_youtube_channel_config() -> dict:
+    """Return YouTube channel settings from env first, then config.json.
+
+    Public repositories should keep channel-specific identifiers out of source.
+    Set these in .env/config.json for local upload automation:
+    - YOUTUBE_CHANNEL_SLUG or youtube_channel.slug
+    - YOUTUBE_CHANNEL_NAME or youtube_channel.name
+    - YOUTUBE_CHANNEL_ID or youtube_channel.id
+    """
+    config = load_config()
+    raw_config = config.get("youtube_channel", {})
+    if not isinstance(raw_config, dict):
+        raw_config = {}
+
+    def read_setting(env_name: str, config_key: str, default: str = "") -> str:
+        return (
+            get_env_var(env_name, "").strip()
+            or str(raw_config.get(config_key, "") or "").strip()
+            or default
+        )
+
+    return {
+        "slug": read_setting("YOUTUBE_CHANNEL_SLUG", "slug", "youtube-channel"),
+        "name": read_setting("YOUTUBE_CHANNEL_NAME", "name", ""),
+        "id": read_setting("YOUTUBE_CHANNEL_ID", "id", ""),
+    }
+
+
 def get_post_bridge_config() -> dict:
     """
     Gets the Post Bridge configuration with safe defaults.

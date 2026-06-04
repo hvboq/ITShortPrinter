@@ -13,9 +13,9 @@ from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
 
-EXPECTED_IT_HAN_HARU_CHANNEL_ID = "UCcDkCUSZbX6EUPIqtVhRGyQ"
-EXPECTED_IT_HAN_HARU_CHANNEL_NAME = "IT한 하루"
-SHORTS_CONTENT_URL = f"https://studio.youtube.com/channel/{EXPECTED_IT_HAN_HARU_CHANNEL_ID}/videos/short"
+EXPECTED_YOUTUBE_CHANNEL_ID = ""
+EXPECTED_YOUTUBE_CHANNEL_NAME = ""
+SHORTS_CONTENT_URL = "https://studio.youtube.com/videos/short"
 UPLOAD_URL = "https://www.youtube.com/upload"
 HEX_UUID_TITLE_RE = re.compile(
     r"^(?:[0-9a-fA-F]{8}|[0-9a-fA-F]{8}[- ][0-9a-fA-F]{4}[- ][0-9a-fA-F]{4}[- ][0-9a-fA-F]{4}[- ][0-9a-fA-F]{12})(?:\.[A-Za-z0-9]+)?$"
@@ -70,12 +70,16 @@ def prepare_upload_video_file(video_path: str, title: str, staging_dir: str | Pa
     return str(target.resolve())
 
 
-def studio_channel_url(channel_id: str = EXPECTED_IT_HAN_HARU_CHANNEL_ID) -> str:
-    return f"https://studio.youtube.com/channel/{channel_id}"
+def studio_channel_url(channel_id: str = "") -> str:
+    if channel_id:
+        return f"https://studio.youtube.com/channel/{channel_id}"
+    return "https://studio.youtube.com"
 
 
-def studio_upload_url(channel_id: str = EXPECTED_IT_HAN_HARU_CHANNEL_ID) -> str:
-    return f"https://studio.youtube.com/channel/{channel_id}/videos/upload"
+def studio_upload_url(channel_id: str = "") -> str:
+    if channel_id:
+        return f"https://studio.youtube.com/channel/{channel_id}/videos/upload"
+    return "https://studio.youtube.com/videos/upload"
 
 
 def clean_description(value: str) -> str:
@@ -93,20 +97,27 @@ def has_identity_verification_gate(text: str) -> bool:
 
 def verify_expected_studio_channel(
     driver,
-    expected_channel_id: str = EXPECTED_IT_HAN_HARU_CHANNEL_ID,
-    expected_channel_name: str = EXPECTED_IT_HAN_HARU_CHANNEL_NAME,
+    expected_channel_id: str = EXPECTED_YOUTUBE_CHANNEL_ID,
+    expected_channel_name: str = EXPECTED_YOUTUBE_CHANNEL_NAME,
 ) -> None:
     text = body_text(driver)
-    active_channel_name = expected_channel_name in text
-    active_channel_id = f"/channel/{expected_channel_id}" in driver.current_url
-    print("ACTIVE_IT_HAN_HARU=", active_channel_name, flush=True)
+    expected_channel_id = (expected_channel_id or "").strip()
+    expected_channel_name = (expected_channel_name or "").strip()
+    active_channel_name = bool(expected_channel_name) and expected_channel_name in text
+    active_channel_id = bool(expected_channel_id) and f"/channel/{expected_channel_id}" in driver.current_url
+    print("ACTIVE_EXPECTED_CHANNEL_NAME=", active_channel_name, flush=True)
     print("ACTIVE_EXPECTED_CHANNEL_ID=", active_channel_id, flush=True)
     if has_identity_verification_gate(text):
         raise RuntimeError("YouTube Studio identity verification is still visible; aborting upload")
-    if not active_channel_id:
+    if expected_channel_id and not active_channel_id:
         raise RuntimeError(
-            f"Active Studio channel is not the expected {expected_channel_name} channel "
+            f"Active Studio channel is not the expected channel "
             f"({expected_channel_id}); aborting upload"
+        )
+    if expected_channel_name and not active_channel_name:
+        raise RuntimeError(
+            f"Active Studio channel text does not include expected channel name "
+            f"({expected_channel_name}); aborting upload"
         )
 
 

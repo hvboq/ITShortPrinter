@@ -10,9 +10,8 @@ SRC_DIR = PROJECT_ROOT / "src"
 if str(SRC_DIR) not in sys.path:
     sys.path.insert(0, str(SRC_DIR))
 
+from config import get_youtube_channel_config  # noqa: E402
 from youtube_api.auth import get_credentials, token_status, youtube_analytics_service, youtube_data_service  # noqa: E402
-
-EXPECTED_CHANNEL_ID = "UCcDkCUSZbX6EUPIqtVhRGyQ"
 
 
 def main() -> int:
@@ -38,8 +37,9 @@ def main() -> int:
     print(json.dumps({"channels": compact_channels}, ensure_ascii=False, indent=2))
 
     active_ids = {item.get("id") for item in items}
-    if EXPECTED_CHANNEL_ID not in active_ids:
-        print(f"WARNING: Expected channel id not found: {EXPECTED_CHANNEL_ID}")
+    expected_channel_id = get_youtube_channel_config()["id"]
+    if expected_channel_id and expected_channel_id not in active_ids:
+        print(f"WARNING: Expected channel id not found: {expected_channel_id}")
         return 3
 
     analytics = youtube_analytics_service(creds)
