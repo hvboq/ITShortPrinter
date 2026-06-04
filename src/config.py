@@ -15,8 +15,16 @@ def get_config_path() -> str:
     return os.path.join(ROOT_DIR, "config.json")
 
 
+# Cache of the parsed config keyed by (path, mtime) so the dozens of getter
+# functions don't re-read and re-parse config.json on every single call. The
+# mtime check keeps live edits picked up without an explicit cache reset.
+_config_cache: tuple[str, float, dict] | None = None
+
+
 def load_config() -> dict:
-    """Load the project config file."""
+    """Load the project config file (cached, invalidated on file mtime change)."""
+    global _config_cache
+
     config_path = get_config_path()
     if not os.path.exists(config_path):
         example_path = os.path.join(ROOT_DIR, "config.example.json")
@@ -25,8 +33,27 @@ def load_config() -> dict:
         else:
             return {}
 
+    try:
+        mtime = os.path.getmtime(config_path)
+    except OSError:
+        mtime = -1.0
+
+    if (
+        _config_cache is not None
+        and _config_cache[0] == config_path
+        and _config_cache[1] == mtime
+    ):
+        # Return a copy so callers mutating the result can't corrupt the cache.
+        return dict(_config_cache[2])
+
     with open(config_path, "r", encoding="utf-8") as file:
-        return json.load(file)
+        data = json.load(file)
+
+    if not isinstance(data, dict):
+        data = {}
+
+    _config_cache = (config_path, mtime, data)
+    return dict(data)
 
 
 def get_config_value(key: str, default=None):
@@ -59,6 +86,11 @@ def get_env_var(name: str, default: str = "") -> str:
     value = os.environ.get(name, "")
     if value:
         return value
+
+    # The Docker PID 1 fallback only exists on Linux; skip the probe elsewhere
+    # (e.g. Windows, the project's primary target) to avoid a pointless open().
+    if not os.path.exists("/proc/1/environ"):
+        return default
 
     try:
         with open("/proc/1/environ", "rb") as file:

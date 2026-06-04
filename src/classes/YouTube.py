@@ -21,7 +21,7 @@ from . import youtube_visuals
 from . import youtube_subtitles
 from . import youtube_composer
 from typing import List
-from datetime import datetime
+from datetime import datetime, timezone
 from PIL import Image
 
 try:
@@ -265,7 +265,7 @@ class YouTube:
         try:
             review_dir = os.path.join(ROOT_DIR, ".mp", "script_reviews")
             os.makedirs(review_dir, exist_ok=True)
-            stamp = datetime.utcnow().strftime("%Y%m%dT%H%M%SZ")
+            stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
             safe_subject = re.sub(r"[^0-9A-Za-z가-힣_-]+", "_", str(getattr(self, "subject", "shorts")))[:48]
             path = os.path.join(review_dir, f"{stamp}_{safe_subject}_{uuid4().hex[:8]}.json")
             payload = {
@@ -475,26 +475,43 @@ class YouTube:
 
         image_prompts = []
 
-        if "image_prompts" in completion:
-            image_prompts = json.loads(completion)["image_prompts"]
-        else:
-            try:
-                image_prompts = json.loads(completion)
-                if get_verbose():
-                    info(f" => Generated Image Prompts: {image_prompts}")
-            except Exception:
-                if get_verbose():
-                    warning(
-                        "LLM returned an unformatted response. Attempting to clean..."
-                    )
+        # The LLM may return a bare JSON list, an object wrapping the list under
+        # "image_prompts", or fenced/prose-wrapped output. Try each shape
+        # defensively so a single malformed response does not abort the run.
+        try:
+            parsed = json.loads(completion)
+            if isinstance(parsed, dict):
+                image_prompts = parsed.get("image_prompts", [])
+            elif isinstance(parsed, list):
+                image_prompts = parsed
+        except json.JSONDecodeError:
+            obj = self._extract_json_object(completion)
+            if isinstance(obj.get("image_prompts"), list):
+                image_prompts = obj["image_prompts"]
+            else:
+                # Fall back to the first JSON array embedded in the text.
+                match = re.search(r"\[.*\]", completion, flags=re.DOTALL)
+                if match:
+                    try:
+                        candidate = json.loads(match.group(0))
+                        if isinstance(candidate, list):
+                            image_prompts = candidate
+                    except json.JSONDecodeError:
+                        image_prompts = []
 
-                # Get everything between [ and ], and turn it into a list
-                r = re.compile(r"\[.*\]")
-                image_prompts = r.findall(completion)
-                if len(image_prompts) == 0:
-                    if get_verbose():
-                        warning("Failed to generate Image Prompts. Retrying...")
-                    return self.generate_prompts()
+        if not isinstance(image_prompts, list):
+            image_prompts = []
+
+        # Keep only string prompts to guard against unexpected nested shapes.
+        image_prompts = [str(p).strip() for p in image_prompts if str(p).strip()]
+
+        if not image_prompts:
+            if get_verbose():
+                warning("Failed to generate Image Prompts. Retrying...")
+            return self.generate_prompts()
+
+        if get_verbose():
+            info(f" => Generated Image Prompts: {image_prompts}")
 
         if len(image_prompts) > n_prompts:
             image_prompts = image_prompts[:n_prompts]
