@@ -85,3 +85,10 @@ All config lives in `config.json` at the project root. See `config.example.json`
 ## Contributing
 
 PRs go against `main`. One feature/fix per PR. Open an issue first. Use `WIP` label for in-progress PRs.
+
+## Working Agreement for Claude
+
+- **Always commit and push to `main` after making changes** in this repository.
+  Whenever you modify files here, create a commit and push it to `origin/main`
+  (rebase onto the latest `origin/main` first if the push is rejected). Do not
+  leave changes uncommitted.
