@@ -427,9 +427,15 @@ class YouTube:
 
         return self.metadata
 
-    def generate_prompts(self) -> List[str]:
+    def generate_prompts(self, _attempt: int = 1, _max_attempts: int = 3) -> List[str]:
         """
         Generates AI Image Prompts based on the provided Video Script.
+
+        Args:
+            _attempt (int): Internal retry counter for malformed LLM output.
+            _max_attempts (int): Maximum number of generation attempts before
+                giving up, to avoid unbounded recursion on a persistently
+                malformed LLM response.
 
         Returns:
             image_prompts (List[str]): Generated List of image prompts.
@@ -506,9 +512,16 @@ class YouTube:
         image_prompts = [str(p).strip() for p in image_prompts if str(p).strip()]
 
         if not image_prompts:
+            if _attempt >= _max_attempts:
+                raise RuntimeError(
+                    f"Failed to generate image prompts after {_max_attempts} attempts; "
+                    "the LLM did not return a usable JSON array."
+                )
             if get_verbose():
-                warning("Failed to generate Image Prompts. Retrying...")
-            return self.generate_prompts()
+                warning(
+                    f"Failed to generate Image Prompts (attempt {_attempt}/{_max_attempts}). Retrying..."
+                )
+            return self.generate_prompts(_attempt=_attempt + 1, _max_attempts=_max_attempts)
 
         if get_verbose():
             info(f" => Generated Image Prompts: {image_prompts}")

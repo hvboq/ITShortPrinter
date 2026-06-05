@@ -10,7 +10,9 @@ MoneyPrinterV2 (MPV2) is a Python 3.12 CLI tool that automates four online workf
 3. **Affiliate Marketing** — scrape Amazon product info, generate pitch, share on Twitter
 4. **Local Business Outreach** — scrape Google Maps (Go binary), extract emails, send cold outreach via SMTP
 
-There is no web UI, no REST API, no test suite, no CI, and no linting config.
+There is no web UI and no REST API. There is a `unittest`-based test suite under
+`tests/` (run with `python -m unittest discover -s tests`); there is no linting
+config. CI is configured under `.github/workflows/` to run the test suite.
 
 ## Running the Application
 
@@ -39,19 +41,21 @@ The app **must** be run from the project root. `python src/main.py` adds `src/` 
 - `src/cron.py` — headless runner invoked by the scheduler as a subprocess: `python src/cron.py <platform> <account_uuid>`
 
 ### Provider Pattern
-Two service categories use a string-based dispatch pattern configured in `config.json`:
+Several service categories use a string-based dispatch pattern configured in `config.json`:
 
 | Category | Config key | Options |
 |---|---|---|
-| LLM | `ollama_model` | Ollama (via `ollama` Python SDK). If empty, user picks from available models at startup. |
-| Image gen | — | `nanobanana2` (Gemini image API) |
+| Text/LLM | `text_provider` | `ollama` (local, via `ollama` SDK), `gemini` (Google Generative Language API when the model name starts with `gemini`), `hermes` (Hermes CLI, default `gpt-5.5`). If no Ollama model is selected, the user picks from available models at startup. |
+| Image gen | `image_provider` | `gemini` / `nanobanana2` (Gemini image API, default), `hermes` (consumes images from `.mp/hermes_images/queue`), `placeholder` (smoke tests) |
+| TTS | `tts_provider` | `kitten` (KittenTTS, default), `silent` (smoke tests) |
 | STT | `stt_provider` | `local_whisper`, `third_party_assemblyai` |
 
-LLM always uses the local Ollama server. Image generation always uses Nano Banana 2.
+Text generation is routed by `text_provider` / the selected model name (see
+`src/llm_provider.py::generate_text`). Image generation defaults to Nano Banana 2.
 
 ### Key Modules
-- **`src/llm_provider.py`** — unified `generate_text(prompt)` function using the Ollama Python SDK
-- **`src/config.py`** — 30+ getter functions, each re-reads `config.json` on every call (no caching). `ROOT_DIR` = project root, computed as `os.path.dirname(sys.path[0])`
+- **`src/llm_provider.py`** — unified `generate_text(prompt)` that routes to Ollama, Gemini, or Hermes based on `text_provider`/model name
+- **`src/config.py`** — 30+ getter functions over `config.json`. `load_config()` is cached and invalidated on the file's mtime, so getters don't re-parse on every call. `ROOT_DIR` = project root
 - **`src/cache.py`** — JSON file persistence in `.mp/` directory (accounts, videos, posts, products)
 - **`src/constants.py`** — menu strings, Selenium selectors (YouTube Studio, X.com, Amazon)
 - **`src/classes/YouTube.py`** — most complex class; full pipeline: topic → script → metadata → image prompts → images → TTS → subtitles → MoviePy combine → Selenium upload
