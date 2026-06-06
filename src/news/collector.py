@@ -14,7 +14,7 @@ from .archive import (
 )
 from .fetcher import fetch_rss
 from .ranker import rank_articles
-from .sources import PHASE_1_SOURCES
+from .sources import PHASE_1_SOURCES, PRODUCT_LAUNCH_SOURCES
 
 
 def _advanced_article_to_ranked_dict(article) -> dict:
@@ -140,6 +140,16 @@ def collect_ranked_news(sources: list[dict] | None = None, limit: int = 20) -> l
     except Exception as exc:
         print(f"NEWS_ARCHIVE_ERROR={type(exc).__name__}:{exc}")
     return ranked_articles[:limit]
+
+
+def collect_product_launch_news(limit: int = 20) -> list[dict]:
+    """Collect only product-launch/new-release candidates for the 13:00 slot.
+
+    This intentionally bypasses the optional broad advanced pipeline and uses
+    launch-focused RSS/search feeds so the product cron job does not spend its
+    candidate budget on market/context/component stories.
+    """
+    return collect_ranked_news(sources=PRODUCT_LAUNCH_SOURCES, limit=limit)
 
 
 def get_top_news(sources: list[dict] | None = None) -> dict | None:

@@ -87,7 +87,7 @@ TECHNOLOGIES = {
     "wearable": ["smartwatch", "smart watch", "smart band", "fitness tracker", "wearable", "galaxy watch", "apple watch", "watch", "band", "스마트워치", "스마트 워치", "스마트밴드", "스마트 밴드", "웨어러블", "피트니스 트래커"],
 }
 
-LAUNCH_TERMS = ["launch", "launches", "launched", "unveil", "unveils", "unveiled", "announce", "announces", "announced", "release", "released", "preorder", "pre-order", "출시", "공개", "발표", "사전예약"]
+LAUNCH_TERMS = ["launch", "launches", "launched", "unveil", "unveils", "unveiled", "announce", "announces", "announced", "release", "released", "preorder", "pre-order", "출시", "출격", "공개", "발표", "사전예약", "사전 예약", "사전 판매", "예약 판매", "판매 시작"]
 PRICE_AVAILABILITY_TERMS = ["availability", "available", "price", "prices", "deal", "deals", "discount", "sale", "price cut", "가격", "판매", "할인"]
 SOFTWARE_UPDATE_TERMS = ["software update", "firmware", "app", "apps", "ios", "ipados", "watchos", "macos", "android update", "one ui", "hyperos", "업데이트", "앱"]
 RUMOR_TERMS = ["rumor", "leak", "leaked", "suggests", "claim", "may", "루머", "유출", "가능성"]

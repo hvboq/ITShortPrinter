@@ -13,7 +13,7 @@ SRC = ROOT / "src"
 if str(SRC) not in sys.path:
     sys.path.insert(0, str(SRC))
 
-from news.collector import collect_ranked_news  # noqa: E402
+from news.collector import collect_product_launch_news, collect_ranked_news  # noqa: E402
 from news.ranker import (  # noqa: E402
     LAUNCH_TERMS,
     _contains_any,
@@ -84,17 +84,24 @@ def matches_requested_topic(article: Any, topic: str) -> bool:
 
     text = _article_text(article)
     event_type = _article_event_type(article)
+    has_launch_term = _contains_any(text, LAUNCH_TERMS)
+    has_blocked_term = _contains_any(
+        text,
+        ["rumor", "leak", "루머", "유출", "concept", "prototype", "특허", "가능성"],
+    )
+    if has_blocked_term:
+        return False
     if event_type == "product_launch":
         return True
     # Launch/release stories with price or availability words are often scored as
     # price_availability because the ranker checks those terms first. They still
     # satisfy the 13:00 slot requirement when a launch term is present.
-    if event_type == "price_availability" and _contains_any(text, LAUNCH_TERMS):
+    if event_type == "price_availability" and has_launch_term:
         return True
-    return _contains_any(text, LAUNCH_TERMS) and not _contains_any(
-        text,
-        ["rumor", "leak", "루머", "유출", "concept", "prototype", "특허"],
-    )
+    # Do not accept broad software-update/market/component stories just because
+    # their titles contain "release/출시"; the 13:00 slot is for product launches
+    # and new device/service availability.
+    return False
 
 
 def load_upload_history() -> list[dict[str, Any]]:
@@ -108,8 +115,20 @@ def load_upload_history() -> list[dict[str, Any]]:
     return data if isinstance(data, list) else []
 
 
+def _is_product_launch_topic(topic: str) -> bool:
+    normalized = topic.strip().lower()
+    return normalized in {"product_launch", "launch", "new_product"}
+
+
+def _collect_articles_for_topic(limit: int, topic: str) -> list[Any]:
+    if _is_product_launch_topic(topic):
+        print("PRODUCT_LAUNCH_SOURCE_MODE=dedicated", flush=True)
+        return collect_product_launch_news(limit=limit)
+    return collect_ranked_news(limit=limit)
+
+
 def select_next_article(limit: int, topic: str = "") -> Any:
-    articles = collect_ranked_news(limit=limit)
+    articles = _collect_articles_for_topic(limit=limit, topic=topic)
     history = load_upload_history()
     used_urls = {
         _norm(item.get("article_url") or item.get("url"))
