@@ -1,6 +1,7 @@
 # YouTube API OAuth Setup
 
-MoneyPrinterV2 uses browser automation for upload, but channel performance analysis should use the official YouTube APIs.
+MoneyPrinterV2 uploads Shorts through the official YouTube Data API and uses
+the YouTube Analytics API for channel performance analysis.
 
 ## APIs
 
@@ -29,14 +30,16 @@ Do not commit this file. `secrets/` is gitignored.
 
 ## Scopes
 
-The setup script requests read-only scopes only:
+The setup script requests upload and read-only analytics scopes:
 
 ```text
 https://www.googleapis.com/auth/youtube.readonly
 https://www.googleapis.com/auth/yt-analytics.readonly
+https://www.googleapis.com/auth/youtube.upload
 ```
 
-No upload/delete scope is requested for analytics collection.
+`youtube.upload` allows video uploads only; broader account-management scopes
+are not required for the upload scripts.
 
 ## First authorization
 
@@ -68,6 +71,10 @@ rm -f /opt/data/MoneyPrinterV2/secrets/youtube_oauth_token.json
 PYTHONPATH=src python scripts/setup_youtube_oauth.py
 ```
 
+If you previously authorized this project before API uploads were enabled, also
+delete `secrets/youtube_oauth_token.json` and rerun the setup script so the
+token includes `youtube.upload`.
+
 ## Smoke test
 
 After OAuth succeeds:
@@ -85,6 +92,9 @@ This checks:
 
 ## Notes
 
-- Keep upload automation on Selenium for now.
+- YouTube uploads use `videos.insert` with resumable media upload.
+- Unverified Google Cloud API projects created after July 28, 2020 may have
+  API-uploaded videos restricted to private visibility until the project passes
+  YouTube API Services audit.
 - Use YouTube Data API + Analytics API for metrics and reporting.
 - Reporting API is not needed for the first implementation; it is better for later bulk/warehouse-style reporting.

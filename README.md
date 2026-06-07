@@ -25,7 +25,7 @@ Sponsored by Post Bridge
 - Uses Gemini image generation by default, with placeholder image support for smoke tests.
 - Generates TTS audio, subtitles, title overlays, and vertical Shorts video files.
 - Supports batch Top 5 generation with a manifest and review frames.
-- Supports Selenium-based YouTube Studio upload using a logged-in Firefox profile.
+- Supports YouTube Data API uploads through OAuth.
 - Can optionally hand uploaded Shorts to Post Bridge for TikTok and Instagram cross-posting.
 - Keeps inherited MoneyPrinterV2 Twitter, affiliate marketing, and outreach flows.
 
@@ -59,7 +59,7 @@ under `.mp/`. Do not commit real `.mp/` data.
   - local Ollama, or
   - Gemini-compatible model configuration
 - Gemini or Google API key when `image_provider` is `gemini`
-- Firefox profile already logged in to YouTube Studio when using upload scripts
+- A Google Cloud OAuth Desktop client authorized for YouTube uploads
 
 Optional features may need extra setup:
 
@@ -198,9 +198,18 @@ Batch outputs are written to:
 
 ## Upload Workflow
 
-YouTube upload automation uses Selenium and a logged-in Firefox profile. Before
-uploading, confirm the generated MP4s, metadata, and review frames in
-`.mp/batch_top5/`.
+YouTube upload automation uses the official YouTube Data API. Before uploading,
+confirm the generated MP4s, metadata, and review frames in `.mp/batch_top5/`.
+
+First authorize a Google Cloud OAuth Desktop client with the upload scope:
+
+```bash
+source venv/bin/activate
+python scripts/setup_youtube_oauth.py
+```
+
+If an older read-only OAuth token exists, delete
+`secrets/youtube_oauth_token.json` and rerun the setup script.
 
 Upload generated Top 5 Shorts as unlisted:
 
@@ -222,7 +231,7 @@ Control the public upload rank range:
 START_RANK=2 END_RANK=4 python scripts/upload_top5_public_shorts.py
 ```
 
-The upload scripts write manifests and screenshots under `.mp/batch_top5/`.
+The upload scripts write manifests under `.mp/batch_top5/`.
 Treat these as operational logs, not source files.
 
 ## Post Bridge Cross-Posting

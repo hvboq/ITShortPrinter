@@ -9,7 +9,7 @@ Use this guide when developing ITShortPrinter on native Windows PowerShell.
 - Python 3.12 available through the Windows launcher (`py -3.12`)
 - ImageMagick available as `magick` when rendering subtitles/title overlays
 - Optional: Ollama running at `http://127.0.0.1:11434` for local text generation
-- Optional: Firefox profile already logged in to YouTube Studio for upload scripts
+- Optional: Google Cloud OAuth Desktop client for YouTube API upload scripts
 
 ## One-command setup
 

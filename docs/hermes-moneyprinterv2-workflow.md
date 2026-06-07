@@ -92,7 +92,7 @@ Primary files:
 Current video composition in `combine()`:
 
 - Uses MoviePy locally to combine generated images, TTS audio, optional subtitles, and background music into 1080x1920 MP4.
-- YouTube upload uses Selenium + logged-in Firefox profile.
+- YouTube upload uses the official YouTube Data API with an OAuth token.
 
 ## News Shorts integration pattern
 
@@ -131,30 +131,28 @@ Minimum workflow:
 ## Recommended implementation strategy
 
 - Do not replace MoviePy with Gemini video generation initially. Use Gemini for images/visuals and MoviePy for final MP4 assembly; this is more deterministic for YouTube Shorts files.
-- Start with generated MP4 only before automating YouTube upload, because Selenium upload requires a Docker-accessible logged-in Firefox profile.
-- For upload, verify Firefox profile path, headless mode, and YouTube Studio DOM selectors.
+- Start with generated MP4 only before automating YouTube upload, then authorize a Google Cloud OAuth Desktop client with the `youtube.upload` scope.
+- For upload, verify `secrets/youtube_oauth_token.json` is refreshable and belongs to the intended YouTube channel.
 
-## YouTube Firefox profile setup
+## YouTube API upload setup
 
-Use a copied Firefox profile under the persistent volume:
-
-```text
-/opt/data/firefox-profiles/youtube
-```
-
-When MoneyPrinterV2 asks:
+Create a Google Cloud OAuth Desktop client and save the downloaded JSON here:
 
 ```text
-=> Enter the path to the Firefox profile:
+secrets/youtube_oauth_client_secret.json
 ```
 
-enter:
+Then authorize the channel account:
+
+```bash
+PYTHONPATH=src python scripts/setup_youtube_oauth.py
+```
+
+The upload scripts read the refreshable token from:
 
 ```text
-/opt/data/firefox-profiles/youtube
+secrets/youtube_oauth_token.json
 ```
-
-Do not rely on a profile path under `/root`.
 
 ## Tests that should exist
 

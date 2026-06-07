@@ -13,7 +13,7 @@ if str(SRC_DIR) not in sys.path:
 from config import get_youtube_channel_config  # noqa: E402
 from youtube_api.auth import (  # noqa: E402
     CLIENT_SECRET_PATH,
-    READONLY_SCOPES,
+    DEFAULT_SCOPES,
     get_credentials,
     print_token_status,
     youtube_data_service,
@@ -23,7 +23,7 @@ from youtube_api.auth import (  # noqa: E402
 def main() -> int:
     print("YouTube OAuth setup for MoneyPrinterV2")
     print("Required OAuth scopes:")
-    for scope in READONLY_SCOPES:
+    for scope in DEFAULT_SCOPES:
         print(f"- {scope}")
     print(f"\nClient secret path: {CLIENT_SECRET_PATH}")
 

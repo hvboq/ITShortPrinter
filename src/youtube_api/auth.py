@@ -5,10 +5,16 @@ import os
 from pathlib import Path
 from typing import Iterable
 
-from google.auth.transport.requests import Request
-from google.oauth2.credentials import Credentials
-from google_auth_oauthlib.flow import InstalledAppFlow
-from googleapiclient.discovery import build
+try:
+    from google.auth.transport.requests import Request
+    from google.oauth2.credentials import Credentials
+    from google_auth_oauthlib.flow import InstalledAppFlow
+    from googleapiclient.discovery import build
+except ModuleNotFoundError:
+    Request = None
+    Credentials = None
+    InstalledAppFlow = None
+    build = None
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 SECRETS_DIR = PROJECT_ROOT / "secrets"
@@ -19,6 +25,12 @@ READONLY_SCOPES = [
     "https://www.googleapis.com/auth/youtube.readonly",
     "https://www.googleapis.com/auth/yt-analytics.readonly",
 ]
+
+UPLOAD_SCOPES = [
+    "https://www.googleapis.com/auth/youtube.upload",
+]
+
+DEFAULT_SCOPES = READONLY_SCOPES + UPLOAD_SCOPES
 
 
 def ensure_secrets_dir() -> Path:
@@ -38,14 +50,30 @@ def credentials_paths() -> dict[str, str]:
     }
 
 
+def _require_google_api_dependencies() -> None:
+    if (
+        Request is None
+        or Credentials is None
+        or InstalledAppFlow is None
+        or build is None
+    ):
+        raise RuntimeError(
+            "Google API dependencies are not installed. Install project requirements "
+            "or run: python -m pip install google-api-python-client "
+            "google-auth google-auth-oauthlib google-auth-httplib2"
+        )
+
+
 def load_credentials(scopes: Iterable[str] | None = None) -> Credentials | None:
-    scopes = list(scopes or READONLY_SCOPES)
+    _require_google_api_dependencies()
+    scopes = list(scopes or DEFAULT_SCOPES)
     if not TOKEN_PATH.exists():
         return None
     return Credentials.from_authorized_user_file(str(TOKEN_PATH), scopes=scopes)
 
 
 def save_credentials(creds: Credentials) -> None:
+    _require_google_api_dependencies()
     ensure_secrets_dir()
     TOKEN_PATH.write_text(creds.to_json(), encoding="utf-8")
     try:
@@ -56,7 +84,8 @@ def save_credentials(creds: Credentials) -> None:
 
 def get_credentials(scopes: Iterable[str] | None = None, interactive: bool = False) -> Credentials:
     """Load/refresh OAuth credentials. If interactive=True, run the first-time OAuth flow."""
-    scopes = list(scopes or READONLY_SCOPES)
+    _require_google_api_dependencies()
+    scopes = list(scopes or DEFAULT_SCOPES)
     ensure_secrets_dir()
     creds = load_credentials(scopes)
 
@@ -70,8 +99,9 @@ def get_credentials(scopes: Iterable[str] | None = None, interactive: bool = Fal
 
     if not interactive:
         raise RuntimeError(
-            "YouTube OAuth token is not available or refreshable. "
-            f"Place OAuth client JSON at {CLIENT_SECRET_PATH} and run scripts/setup_youtube_oauth.py."
+            "YouTube OAuth token is not available or refreshable for the requested scopes. "
+            f"Place OAuth client JSON at {CLIENT_SECRET_PATH}, delete any old token, "
+            "and run scripts/setup_youtube_oauth.py."
         )
 
     if not CLIENT_SECRET_PATH.exists():
@@ -96,10 +126,12 @@ def get_credentials(scopes: Iterable[str] | None = None, interactive: bool = Fal
 
 
 def youtube_data_service(credentials: Credentials | None = None):
+    _require_google_api_dependencies()
     return build("youtube", "v3", credentials=credentials or get_credentials(), cache_discovery=False)
 
 
 def youtube_analytics_service(credentials: Credentials | None = None):
+    _require_google_api_dependencies()
     return build("youtubeAnalytics", "v2", credentials=credentials or get_credentials(), cache_discovery=False)
 
 
@@ -113,11 +145,11 @@ def token_status() -> dict:
         "token_valid": False,
         "token_expired": None,
         "has_refresh_token": False,
-        "scopes": READONLY_SCOPES,
+        "scopes": DEFAULT_SCOPES,
     }
     if token_exists:
         try:
-            creds = load_credentials(READONLY_SCOPES)
+            creds = load_credentials(DEFAULT_SCOPES)
             status.update(
                 {
                     "token_valid": bool(creds and creds.valid),
