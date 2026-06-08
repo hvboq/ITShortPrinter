@@ -16,6 +16,7 @@ import requests
 
 from cache import get_processed_news_urls
 from cache import save_latest_news_candidates
+from config import get_default_text_model
 from config import get_news_pipeline_config
 from config import get_ollama_model
 from llm_provider import generate_text
