@@ -89,6 +89,8 @@ class YouTube:
         self.browser = None
         self.service = None
         self.options = None
+        self.has_placeholder_visuals = False
+        self.placeholder_visual_reasons: List[str] = []
 
         if not init_browser:
             return
@@ -205,9 +207,7 @@ class YouTube:
         Returns:
             response (str): The generated AI Repsonse.
         """
-        if model_name is None and get_text_provider() == "hermes":
-            model_name = f"hermes:{get_hermes_model()}"
-        return generate_text(prompt, model_name=model_name or get_ollama_model())
+        return generate_text(prompt, model_name=model_name or get_default_text_model())
 
     def generate_topic(self) -> str:
         """
@@ -558,13 +558,21 @@ class YouTube:
         """Download an article image and persist it as a local PNG for MoviePy."""
         return youtube_visuals.download_image(image_url, self.images)
 
+    def _mark_placeholder_visual(self, reason: str) -> None:
+        """Record that the current video used fallback placeholder imagery."""
+        self.has_placeholder_visuals = True
+        normalized = re.sub(r"\s+", " ", str(reason or "placeholder visual generated")).strip()
+        if normalized and normalized not in self.placeholder_visual_reasons:
+            self.placeholder_visual_reasons.append(normalized)
+
     def create_contextual_thumbnail(self, topic: str) -> str:
         """Create a deterministic local visual when no article image is available."""
         prompt = youtube_visuals.contextual_thumbnail_prompt(topic)
-        return self.generate_placeholder_image(prompt)
+        return self.generate_placeholder_image(prompt, reason="contextual thumbnail fallback")
 
-    def generate_placeholder_image(self, prompt: str) -> str:
-        """Generate a visually rich vertical fallback PNG when Gemini is rate-limited."""
+    def generate_placeholder_image(self, prompt: str, reason: str = "placeholder visual generated") -> str:
+        """Generate a visually rich vertical fallback PNG and mark the video as non-uploadable."""
+        self._mark_placeholder_visual(reason)
         return youtube_visuals.generate_placeholder_image(prompt, self.images)
 
     def generate_image_hermes(self, prompt: str) -> str:
@@ -573,7 +581,7 @@ class YouTube:
         if image_path:
             return image_path
         warning("Hermes image queue is empty. Falling back to placeholder image.")
-        return self.generate_placeholder_image(prompt)
+        return self.generate_placeholder_image(prompt, reason="Hermes image queue empty")
 
     def generate_image_nanobanana2(self, prompt: str) -> str:
         """
@@ -629,7 +637,7 @@ class YouTube:
         provider = get_image_provider()
         if provider == "placeholder":
             warning("Using placeholder image provider for local smoke testing. Do not use for production uploads.")
-            return self.generate_placeholder_image(prompt)
+            return self.generate_placeholder_image(prompt, reason="image_provider=placeholder")
         if provider == "hermes":
             return self.generate_image_hermes(prompt)
         if provider != "gemini":
@@ -640,7 +648,7 @@ class YouTube:
             return image_path
 
         warning("Gemini image generation failed or was rate-limited. Falling back to placeholder image so video generation can continue.")
-        return self.generate_placeholder_image(prompt)
+        return self.generate_placeholder_image(prompt, reason="Gemini image unavailable or rate-limited")
 
     def generate_script_to_speech(self, tts_instance: TTS) -> str:
         """
@@ -1056,6 +1064,13 @@ class YouTube:
 
             if not getattr(self, "video_path", ""):
                 raise ValueError("Cannot upload because no video_path is set.")
+            if getattr(self, "has_placeholder_visuals", False):
+                reasons = getattr(self, "placeholder_visual_reasons", []) or []
+                reason_text = ", ".join(reasons) if reasons else "placeholder visuals detected"
+                raise ValueError(
+                    "Upload blocked because this video used placeholder visuals. "
+                    f"Resolve the image generation fallback and regenerate before uploading. Reasons: {reason_text}"
+                )
             metadata = getattr(self, "metadata", {}) or {}
             title = metadata.get("title") or getattr(self, "subject", "")
             description = metadata.get("description", "")
