@@ -3,6 +3,7 @@ import sys
 
 from status import *
 from cache import get_accounts
+from config import get_default_text_model
 from config import get_verbose
 from classes.Tts import TTS
 from classes.Twitter import Twitter
@@ -30,12 +31,13 @@ def main():
         None. The function performs operations based on the purpose and account UUID and does not return any value."""
     purpose = str(sys.argv[1])
     account_id = str(sys.argv[2])
-    model = str(sys.argv[3]) if len(sys.argv) > 3 else None
+    model = str(sys.argv[3]).strip() if len(sys.argv) > 3 and str(sys.argv[3]).strip() else None
 
-    if model:
-        select_model(model)
+    selected_model = model or get_default_text_model()
+    if selected_model:
+        select_model(selected_model)
     else:
-        error("No Ollama model specified. Pass model name as third argument.")
+        error("No default text model configured. Set text_provider/hermes_model or pass a model explicitly.")
         sys.exit(1)
 
     verbose = get_verbose()

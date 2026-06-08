@@ -210,6 +210,14 @@ def get_hermes_model() -> str:
     return str(load_config().get("hermes_model", "gpt-5.5")).strip() or "gpt-5.5"
 
 
+def get_default_text_model() -> str:
+    """Return the provider-aware default text model identifier."""
+    provider = get_text_provider()
+    if provider == "hermes":
+        return f"hermes:{get_hermes_model()}"
+    return get_ollama_model()
+
+
 def get_script_review_enabled() -> bool:
     """
     Gets whether Shorts scripts should be reviewed once by local Ollama after initial generation.

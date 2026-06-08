@@ -1106,9 +1106,9 @@ class NewsPipeline:
         if not self.config.get("use_llm_scoring", False):
             return 0, "LLM scoring disabled."
 
-        model_name = get_ollama_model()
+        model_name = get_default_text_model()
         if not model_name:
-            return 0, "No Ollama model configured for LLM scoring."
+            return 0, "No default text model configured for LLM scoring."
 
         prompt = f"""
 You are ranking tech news for a YouTube Shorts channel.

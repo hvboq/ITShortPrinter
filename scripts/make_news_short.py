@@ -13,7 +13,7 @@ if SRC_DIR not in sys.path:
 from cache import get_latest_news_candidates
 from cache import mark_news_processed
 from config import assert_folder_structure
-from config import get_ollama_model
+from config import get_default_text_model
 from llm_provider import select_model
 from news_pipeline import NewsArticle
 from news_pipeline import NewsPipeline
@@ -77,12 +77,12 @@ def main() -> int:
     args = parse_args()
     assert_folder_structure()
 
-    configured_model = args.model.strip() or get_ollama_model()
+    configured_model = args.model.strip() or get_default_text_model()
     if configured_model:
         select_model(configured_model)
         print(f"Using text model: {configured_model}")
     else:
-        print("No text model configured. Set ollama_model or pass --model.")
+        print("No text model configured. Set text_provider/hermes_model or ollama_model, or pass --model.")
         return 1
 
     if args.use_cache:

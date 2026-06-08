@@ -465,11 +465,11 @@ if __name__ == "__main__":
     # Fetch MP3 Files
     fetch_songs()
 
-    # Select Ollama model — use config value if set, otherwise pick interactively
-    configured_model = get_ollama_model()
+    # Select default text model — use Hermes when configured, otherwise Ollama
+    configured_model = get_default_text_model()
     if configured_model:
         select_model(configured_model)
-        success(f"Using configured model: {configured_model}")
+        success(f"Using configured text model: {configured_model}")
     else:
         try:
             models = list_models()

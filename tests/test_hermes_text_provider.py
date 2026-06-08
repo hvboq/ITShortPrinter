@@ -46,6 +46,7 @@ class HermesTextProviderTests(unittest.TestCase):
         with patch("config.load_config", return_value={"text_provider": "hermes", "hermes_model": "gpt-5.5"}):
             self.assertEqual(config.get_text_provider(), "hermes")
             self.assertEqual(config.get_hermes_model(), "gpt-5.5")
+            self.assertEqual(config.get_default_text_model(), "hermes:gpt-5.5")
 
 
 if __name__ == "__main__":
