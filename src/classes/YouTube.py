@@ -177,6 +177,24 @@ class YouTube:
             init_browser=False,
         )
 
+    @classmethod
+    def for_api_upload(
+        cls,
+        account_uuid: str,
+        account_nickname: str,
+        niche: str,
+        language: str,
+    ):
+        """Create a YouTube instance for API-only uploads without launching Firefox."""
+        return cls(
+            account_uuid=account_uuid,
+            account_nickname=account_nickname,
+            fp_profile_path="",
+            niche=niche,
+            language=language,
+            init_browser=False,
+        )
+
     @property
     def niche(self) -> str:
         """

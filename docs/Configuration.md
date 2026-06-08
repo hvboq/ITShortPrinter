@@ -5,7 +5,7 @@ All your configurations live in a root-level `config.json`, which starts as a co
 ## Values
 
 - `verbose`: `boolean` - If `true`, the application prints more information.
-- `firefox_profile`: `string` - Path to your Firefox profile so the app can reuse your logged-in social accounts.
+- `firefox_profile`: `string` - Path to your Firefox profile for Selenium-based social account automation. Cron YouTube uploads use the API path and do not require this.
 - `headless`: `boolean` - If `true`, the browser runs without a visible window.
 - `ollama_base_url`: `string` - Base URL of your local Ollama server. Default: `http://127.0.0.1:11434`.
 - `ollama_model`: `string` - Text model to use for generation. Recommended for this repo: `gemma4:26b` when local hardware can run it. Smaller local Ollama models such as `gemma4:e4b` remain supported for faster/low-resource runs, and Gemini models such as `gemini-2.5-flash` can also be used when needed. If empty, the app queries Ollama and lets you choose interactively.

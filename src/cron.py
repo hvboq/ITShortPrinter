@@ -74,12 +74,11 @@ def main():
             if acc["id"] == account_id:
                 if verbose:
                     info("Initializing YouTube...")
-                youtube = YouTube(
-                    acc["id"],
-                    acc["nickname"],
-                    acc["firefox_profile"],
-                    acc["niche"],
-                    acc["language"]
+                youtube = YouTube.for_api_upload(
+                    account_uuid=acc["id"],
+                    account_nickname=acc["nickname"],
+                    niche=acc["niche"],
+                    language=acc["language"],
                 )
                 youtube.generate_video(tts)
                 upload_success = youtube.upload_video()

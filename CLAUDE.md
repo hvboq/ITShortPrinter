@@ -72,12 +72,13 @@ Selenium uses pre-authenticated Firefox profiles (never handles login). The prof
 
 ### CRON Scheduling
 Uses Python's `schedule` library (in-process, not OS cron). The scheduled job spawns `subprocess.run(["python", "src/cron.py", platform, account_id])`.
+Scheduled YouTube uploads are API-only via `src/cron.py`; they do not launch Firefox/Selenium or depend on a YouTube Firefox profile.
 
 ## Configuration
 
 All config lives in `config.json` at the project root. See `config.example.json` for the full template and `docs/Configuration.md` for reference. Key external dependencies to configure:
 - **ImageMagick** — required for MoviePy subtitle rendering (`imagemagick_path`)
-- **Firefox profile** — must be pre-logged-in to target platforms (`firefox_profile`)
+- **Firefox profile** — required only for Selenium-based Twitter/X and Studio flows, not cron YouTube uploads (`firefox_profile`)
 - **Ollama** — for LLM text generation (via `ollama` Python SDK)
 - **Nano Banana 2** — for image generation (Gemini image API)
 - **Go** — only needed for Outreach (Google Maps scraper)

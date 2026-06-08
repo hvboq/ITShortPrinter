@@ -200,6 +200,7 @@ Batch outputs are written to:
 
 YouTube upload automation uses the official YouTube Data API. Before uploading,
 confirm the generated MP4s, metadata, and review frames in `.mp/batch_top5/`.
+Scheduled cron uploads follow the same API-only path and do not depend on Firefox/Selenium profile locks.
 
 First authorize a Google Cloud OAuth Desktop client with the upload scope:
 
