@@ -2,6 +2,9 @@ from __future__ import annotations
 
 import ast
 import importlib.util
+import json
+import sqlite3
+import tempfile
 import unittest
 from pathlib import Path
 from unittest.mock import patch
@@ -101,6 +104,16 @@ class TwoHourShortJobTests(unittest.TestCase):
         self.assertFalse(job.matches_requested_topic(software_article, "product_launch"))
         self.assertTrue(job.matches_requested_topic(availability_article, "product_launch"))
 
+    def test_product_launch_topic_rejects_delayed_launch_wording(self) -> None:
+        job = load_job_module()
+        delayed_article = {
+            "title": "EU가 막았다…애플, 아이폰·아이패드용 시리 AI 출시 무기한 연기",
+            "raw_excerpt": "Apple delayed the launch of its AI feature indefinitely.",
+            "event_type": "price_availability",
+        }
+
+        self.assertFalse(job.matches_requested_topic(delayed_article, "product_launch"))
+
     def test_select_next_article_can_limit_candidates_to_product_launch_topic(self) -> None:
         job = load_job_module()
         articles = [
@@ -164,6 +177,71 @@ class TwoHourShortJobTests(unittest.TestCase):
         self.assertEqual(selected["url"], "https://example.com/launch")
         product.assert_called_once_with(limit=10)
         general.assert_not_called()
+
+    def test_select_next_article_falls_back_to_unused_archive_candidate(self) -> None:
+        job = load_job_module()
+        with tempfile.TemporaryDirectory() as tmpdir:
+            db_path = Path(tmpdir) / "archive.sqlite3"
+            con = sqlite3.connect(db_path)
+            con.execute(
+                """
+                CREATE TABLE articles (
+                    id TEXT PRIMARY KEY,
+                    payload_json TEXT,
+                    title TEXT,
+                    url TEXT,
+                    canonical_url TEXT,
+                    source_name TEXT,
+                    shorts_score INTEGER,
+                    event_type TEXT,
+                    topic_bucket TEXT,
+                    published_at TEXT,
+                    fetched_at TEXT,
+                    archived_at TEXT,
+                    shorts_video_status TEXT
+                )
+                """
+            )
+            article = {
+                "id": "archive-1",
+                "title": "Archive GPU story",
+                "url": "https://example.com/archive-gpu",
+                "source_name": "archive_source",
+                "shorts_score": 91,
+                "event_type": "market_context",
+            }
+            con.execute(
+                """
+                INSERT INTO articles VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    article["id"],
+                    json.dumps(article),
+                    article["title"],
+                    article["url"],
+                    article["url"],
+                    article["source_name"],
+                    article["shorts_score"],
+                    article["event_type"],
+                    "ai_infra",
+                    "2026-06-09T00:00:00Z",
+                    "2026-06-09T00:00:00Z",
+                    "2026-06-09T00:00:00Z",
+                    "not_generated",
+                ),
+            )
+            con.commit()
+            con.close()
+
+            live_used = {"title": "Live already used", "url": "https://example.com/live", "shorts_score": 99}
+            history = [{"article_url": "https://example.com/live", "article_title": "Live already used"}]
+            with patch.object(job, "ARCHIVE_DB", db_path), patch.object(
+                job, "collect_ranked_news", return_value=[live_used]
+            ), patch.object(job, "load_upload_history", return_value=history):
+                selected = job.select_next_article(limit=10, topic="")
+
+        self.assertEqual(selected["url"], "https://example.com/archive-gpu")
+        self.assertEqual(selected["selection_source"], "archive_fallback")
 
 
 if __name__ == "__main__":

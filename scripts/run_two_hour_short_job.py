@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+import sqlite3
 import subprocess
 import sys
 import time
@@ -28,6 +29,7 @@ UPLOAD_MANIFEST = JOB_DIR / "upload_manifest.json"
 LOG_DIR = JOB_DIR / "logs"
 SCREEN_DIR = JOB_DIR / "screens"
 UPLOAD_HISTORY = ROOT / "data" / "upload_history.json"
+ARCHIVE_DB = ROOT / "data" / "news_archive.sqlite3"
 
 
 def _now() -> int:
@@ -87,7 +89,23 @@ def matches_requested_topic(article: Any, topic: str) -> bool:
     has_launch_term = _contains_any(text, LAUNCH_TERMS)
     has_blocked_term = _contains_any(
         text,
-        ["rumor", "leak", "루머", "유출", "concept", "prototype", "특허", "가능성"],
+        [
+            "rumor",
+            "leak",
+            "루머",
+            "유출",
+            "concept",
+            "prototype",
+            "특허",
+            "가능성",
+            "delay",
+            "delayed",
+            "postpone",
+            "postponed",
+            "연기",
+            "지연",
+            "무기한",
+        ],
     )
     if has_blocked_term:
         return False
@@ -127,9 +145,7 @@ def _collect_articles_for_topic(limit: int, topic: str) -> list[Any]:
     return collect_ranked_news(limit=limit)
 
 
-def select_next_article(limit: int, topic: str = "") -> Any:
-    articles = _collect_articles_for_topic(limit=limit, topic=topic)
-    history = load_upload_history()
+def _history_keys(history: list[dict]) -> tuple[set[str], set[str]]:
     used_urls = {
         _norm(item.get("article_url") or item.get("url"))
         for item in history
@@ -140,6 +156,70 @@ def select_next_article(limit: int, topic: str = "") -> Any:
         for item in history
         if isinstance(item, dict)
     }
+    return used_urls, used_titles
+
+
+def _row_to_archive_article(row: sqlite3.Row) -> dict[str, Any]:
+    try:
+        article = json.loads(row["payload_json"] or "{}")
+    except json.JSONDecodeError:
+        article = {}
+    article.update(
+        {
+            "id": row["id"],
+            "title": article.get("title") or row["title"],
+            "url": article.get("url") or row["url"] or row["canonical_url"],
+            "canonical_url": article.get("canonical_url") or row["canonical_url"] or row["url"],
+            "source_name": article.get("source_name") or row["source_name"],
+            "shorts_score": article.get("shorts_score") if article.get("shorts_score") is not None else row["shorts_score"],
+            "event_type": article.get("event_type") or row["event_type"],
+            "topic_bucket": article.get("topic_bucket"),
+            "selection_source": "archive_fallback",
+        }
+    )
+    return article
+
+
+def _archive_fallback_candidates(limit: int, topic: str, used_urls: set[str], used_titles: set[str]) -> list[dict[str, Any]]:
+    if not ARCHIVE_DB.exists():
+        return []
+
+    con = sqlite3.connect(ARCHIVE_DB)
+    con.row_factory = sqlite3.Row
+    try:
+        rows = con.execute(
+            """
+            SELECT id, payload_json, title, url, canonical_url, source_name,
+                   shorts_score, event_type, published_at, fetched_at, archived_at
+            FROM articles
+            WHERE shorts_video_status = 'not_generated'
+            ORDER BY COALESCE(shorts_score, 0) DESC,
+                     COALESCE(NULLIF(published_at, ''), fetched_at, archived_at) DESC,
+                     id ASC
+            LIMIT ?
+            """,
+            (max(limit, 50),),
+        ).fetchall()
+    finally:
+        con.close()
+
+    candidates: list[dict[str, Any]] = []
+    for row in rows:
+        article = _row_to_archive_article(row)
+        title = _norm(_article_get(article, "title", ""))
+        url = _norm(_article_get(article, "url", ""))
+        if (url and url in used_urls) or (title and title in used_titles):
+            continue
+        if topic and not matches_requested_topic(article, topic):
+            continue
+        candidates.append(article)
+    return candidates
+
+
+def select_next_article(limit: int, topic: str = "") -> Any:
+    articles = _collect_articles_for_topic(limit=limit, topic=topic)
+    history = load_upload_history()
+    used_urls, used_titles = _history_keys(history)
 
     candidates = []
     seen = set()
@@ -167,10 +247,24 @@ def select_next_article(limit: int, topic: str = "") -> Any:
         candidates.append(article)
 
     selected = select_portfolio_articles(candidates, count=1)
-    if not selected:
-        topic_suffix = f" for topic={topic}" if topic else ""
-        raise RuntimeError(f"No unused Shorts-friendly article candidates found{topic_suffix}")
-    return selected[0]
+    if selected:
+        return selected[0]
+
+    fallback_candidates = _archive_fallback_candidates(limit, topic, used_urls, used_titles)
+    fallback_selected = select_portfolio_articles(fallback_candidates, count=1)
+    if fallback_selected:
+        article = fallback_selected[0]
+        print(
+            "ARCHIVE_FALLBACK_SELECTED|"
+            f"score={_article_get(article, 'shorts_score', '')}|"
+            f"source={_article_get(article, 'source_name', '')}|"
+            f"title={_article_get(article, 'title', '')}",
+            flush=True,
+        )
+        return article
+
+    topic_suffix = f" for topic={topic}" if topic else ""
+    raise RuntimeError(f"No unused Shorts-friendly article candidates found{topic_suffix}")
 
 
 def acquire_lock(lock_ttl_minutes: int) -> bool:
