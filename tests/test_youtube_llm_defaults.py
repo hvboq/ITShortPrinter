@@ -10,13 +10,11 @@ if str(SRC_DIR) not in sys.path:
 
 
 class YouTubeLlmDefaultsTests(unittest.TestCase):
-    def test_generate_response_uses_configured_ollama_model_when_no_model_passed(self):
+    def test_generate_response_uses_default_text_model_when_no_model_passed(self):
         from classes.YouTube import YouTube
 
         youtube = YouTube.for_local_generation(niche="IT News", language="Korean")
-        with patch("classes.YouTube.get_text_provider", return_value="ollama"), patch(
-            "classes.YouTube.get_ollama_model", return_value="gemma4:e4b"
-        ), patch(
+        with patch("classes.YouTube.get_default_text_model", return_value="gemma4:e4b"), patch(
             "classes.YouTube.generate_text", return_value="ok"
         ) as generate_text:
             response = youtube.generate_response("hello")
@@ -24,14 +22,12 @@ class YouTubeLlmDefaultsTests(unittest.TestCase):
         self.assertEqual(response, "ok")
         generate_text.assert_called_once_with("hello", model_name="gemma4:e4b")
 
-    def test_generate_response_uses_hermes_model_when_text_provider_is_hermes(self):
+    def test_generate_response_uses_explicit_model_when_passed(self):
         from classes.YouTube import YouTube
 
         youtube = YouTube.for_local_generation(niche="IT News", language="Korean")
-        with patch("classes.YouTube.get_text_provider", return_value="hermes"), patch(
-            "classes.YouTube.get_hermes_model", return_value="gpt-5.5"
-        ), patch("classes.YouTube.generate_text", return_value="ok") as generate_text:
-            response = youtube.generate_response("hello")
+        with patch("classes.YouTube.generate_text", return_value="ok") as generate_text:
+            response = youtube.generate_response("hello", model_name="hermes:gpt-5.5")
 
         self.assertEqual(response, "ok")
         generate_text.assert_called_once_with("hello", model_name="hermes:gpt-5.5")
