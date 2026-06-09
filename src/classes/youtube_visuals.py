@@ -2,6 +2,7 @@ import io
 import os
 import re
 import shutil
+import subprocess
 import textwrap
 from pathlib import Path
 from uuid import uuid4
@@ -61,6 +62,18 @@ def contextual_thumbnail_prompt(topic: str) -> str:
     )
 
 
+def _persist_local_image(source: Path, images: list[str], provider_label: str) -> str:
+    """Copy/normalize a generated local image into .mp for MoviePy consumption."""
+    dest = Path(ROOT_DIR) / ".mp" / f"hermes-{uuid4()}.png"
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    image = Image.open(source).convert("RGB")
+    image.save(dest)
+    images.append(str(dest))
+    if get_verbose():
+        info(f' => Consumed {provider_label} image "{source}" as "{dest}"')
+    return str(dest)
+
+
 def consume_hermes_queued_image(images: list[str]) -> str | None:
     """Move the next Hermes-generated queued image into .mp for MoviePy consumption."""
     queue_dir = Path(os.environ.get(
@@ -78,20 +91,73 @@ def consume_hermes_queued_image(images: list[str]) -> str | None:
         return None
 
     source = candidates[0]
-    dest = Path(ROOT_DIR) / ".mp" / f"hermes-{uuid4()}.png"
-    dest.parent.mkdir(parents=True, exist_ok=True)
-
-    image = Image.open(source).convert("RGB")
-    image.save(dest)
+    image_path = _persist_local_image(source, images, "queued Hermes")
     try:
         source.unlink()
     except OSError:
         shutil.move(str(source), str(source.with_suffix(source.suffix + ".used")))
+    return image_path
 
-    images.append(str(dest))
-    if get_verbose():
-        info(f' => Consumed Hermes-generated image "{source}" as "{dest}"')
-    return str(dest)
+
+def generate_hermes_cli_image(prompt: str, images: list[str]) -> str | None:
+    """Generate an image through Hermes CLI/image_gen and persist it for MoviePy.
+
+    This is intentionally opt-in via HERMES_ENABLE_CLI_IMAGE_GENERATION so tests and
+    local smoke runs never spawn a nested Hermes agent unexpectedly. Cron wrappers set
+    the flag to prevent production uploads from falling back to placeholder art.
+    """
+    if os.environ.get("HERMES_ENABLE_CLI_IMAGE_GENERATION") != "1":
+        return None
+
+    hermes_cmd = os.environ.get("HERMES_CLI", "hermes")
+    provider = os.environ.get("HERMES_IMAGE_PROVIDER", "openai-codex")
+    model = os.environ.get("HERMES_IMAGE_MODEL", "gpt-5.5")
+    timeout = int(os.environ.get("HERMES_IMAGE_TIMEOUT_SECONDS", "600"))
+    request = (
+        "Generate one vertical 9:16 YouTube Shorts background image for this Korean IT news prompt. "
+        "Use the image_generate tool. Do not include logos, readable text, watermarks, or UI. "
+        "After generation, output only the local image file path or URL, no extra prose.\n\n"
+        f"Prompt: {prompt}"
+    )
+
+    try:
+        result = subprocess.run(
+            [
+                hermes_cmd,
+                "-z",
+                request,
+                "-t",
+                "image_gen",
+                "--provider",
+                provider,
+                "-m",
+                model,
+            ],
+            cwd=ROOT_DIR,
+            text=True,
+            capture_output=True,
+            timeout=timeout,
+            check=False,
+        )
+    except Exception as exc:  # noqa: BLE001 - fallback path logs and continues
+        warning(f"Hermes CLI image generation failed before completion: {type(exc).__name__}: {exc}")
+        return None
+
+    output = "\n".join(part for part in [result.stdout, result.stderr] if part).strip()
+    if result.returncode != 0:
+        warning(f"Hermes CLI image generation failed with exit={result.returncode}: {output[-1000:]}")
+        return None
+
+    for line in reversed(output.splitlines()):
+        candidate = line.strip().strip('"').strip("'")
+        if not candidate or candidate.startswith("http://") or candidate.startswith("https://"):
+            continue
+        path = Path(candidate)
+        if path.exists() and path.suffix.lower() in {".png", ".jpg", ".jpeg", ".webp"}:
+            return _persist_local_image(path, images, "Hermes CLI generated")
+
+    warning(f"Hermes CLI image generation did not return a local image path: {output[-1000:]}")
+    return None
 
 
 def generate_placeholder_image(prompt: str, images: list[str]) -> str:

@@ -594,11 +594,16 @@ class YouTube:
         return youtube_visuals.generate_placeholder_image(prompt, self.images)
 
     def generate_image_hermes(self, prompt: str) -> str:
-        """Use a pre-generated Hermes image from .mp/hermes_images/queue."""
+        """Use queued Hermes art, or generate one through Hermes CLI when enabled."""
         image_path = youtube_visuals.consume_hermes_queued_image(self.images)
         if image_path:
             return image_path
-        warning("Hermes image queue is empty. Falling back to placeholder image.")
+
+        image_path = youtube_visuals.generate_hermes_cli_image(prompt, self.images)
+        if image_path:
+            return image_path
+
+        warning("Hermes image queue is empty and CLI image generation is unavailable. Falling back to placeholder image.")
         return self.generate_placeholder_image(prompt, reason="Hermes image queue empty")
 
     def generate_image_nanobanana2(self, prompt: str) -> str:
