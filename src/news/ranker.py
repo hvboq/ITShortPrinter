@@ -47,6 +47,9 @@ LAUNCH_PRIORITY_BONUS = {
 
 BRANDS = {
     "Samsung": ["samsung", "galaxy", "one ui", "exynos"],
+    "SK Hynix": ["sk hynix", "sk하이닉스", "하이닉스"],
+    "Hanmi Semiconductor": ["hanmi semiconductor", "한미반도체"],
+    "BOE": ["boe", "비오이"],
     "Apple": ["apple", "iphone", "ipad", "mac", "macbook", "vision pro", "airpods", "m-series"],
     "Qualcomm": ["qualcomm", "snapdragon", "adreno", "hexagon", "fastconnect"],
     "Xiaomi": ["xiaomi", "redmi", "poco", "hyperos", "샤오미", "홍미", "포코"],
@@ -75,10 +78,10 @@ BRANDS = {
 
 TECHNOLOGIES = {
     "battery": ["battery", "배터리", "charging", "충전", "silicon-carbon", "solid-state", "mAh", "Wh/kg"],
-    "display": ["display", "oled", "ltpo", "microled", "mini led", "foldable", "폴더블", "nits", "pwm"],
+    "display": ["display", "oled", "ltpo", "microled", "mini led", "foldable", "폴더블", "디스플레이", "올레드", "nits", "pwm"],
     "wifi": ["wi-fi", "wifi", "wi-fi 7", "wi-fi 8", "6ghz", "802.11", "mlo", "afc"],
     "bluetooth": ["bluetooth", "le audio", "auracast", "lc3", "bluetooth 6"],
-    "chipset": ["chip", "chipset", "soc", "processor", "npu", "snapdragon", "exynos", "dimensity", "apple silicon"],
+    "chipset": ["chip", "chipset", "soc", "processor", "npu", "snapdragon", "exynos", "dimensity", "apple silicon", "semiconductor", "반도체", "hbm", "파운드리", "후공정", "tc본더", "본더", "공급망"],
     "cpu": ["cpu", "processor", "core ultra", "ryzen", "xeon", "epyc", "threadripper", "인텔", "라이젠", "프로세서"],
     "gpu": ["gpu", "graphics", "geforce", "rtx", "radeon", "arc gpu", "blackwell", "cuda", "그래픽카드", "그래픽 카드"],
     "pc_laptop": ["laptop", "notebook", "desktop pc", "pc", "workstation", "mini pc", "gaming pc", "노트북", "데스크톱", "데스크탑", "워크스테이션", "게이밍 pc"],
@@ -142,6 +145,20 @@ STRATEGIC_IMPORTANCE_TERMS = [
     "competition", "rival", "vs", "versus", "upgrade", "available", "launch", "new model",
     "최초", "플래그십", "보급형", "저렴", "가격", "성능", "배터리", "폴더블", "경쟁", "대결",
     "업그레이드", "출시", "공개", "신규 모델", "모델 출시",
+]
+
+# Applied from the IT한 하루 28-day performance review (2026-06-09):
+# high-retention/high-subscriber Shorts skewed toward semiconductor supply-chain,
+# GPU/AI-PC, NVIDIA/Samsung/BOE, and concrete price/supply/competition stories.
+HIGH_PERFORMANCE_INDUSTRY_TERMS = [
+    "semiconductor", "hbm", "foundry", "packaging", "gpu", "ai pc", "nvidia", "boe",
+    "supply", "supplier", "supply chain", "oled", "display", "rtx", "blackwell",
+    "반도체", "후공정", "파운드리", "공급", "공급망", "수주", "계약", "장비", "본더", "tc본더",
+    "gpu", "엔비디아", "삼성디스플레이", "디스플레이", "올레드", "컴퓨텍스",
+]
+LOW_RETENTION_ADVICE_TERMS = [
+    "살 만할까", "사야 할까", "기다릴", "쓸모 있을까", "정답일까", "영향 있을까",
+    "should you buy", "worth buying", "wait for", "is it worth", "does it matter",
 ]
 
 ROOT_DIR = Path(__file__).resolve().parents[2]
@@ -210,6 +227,9 @@ def popularity_score(brands: list[str], technologies: list[str]) -> int:
         score += {
             "Apple": 18,
             "Samsung": 18,
+            "SK Hynix": 18,
+            "Hanmi Semiconductor": 16,
+            "BOE": 16,
             "NVIDIA": 16,
             "AMD": 16,
             "Intel": 16,
@@ -279,7 +299,20 @@ def performance_signal_bonus(text: str, technologies: list[str]) -> int:
         bonus += 5
     if _contains_any(text, PERFORMANCE_FORMAT_TERMS) and _contains_any(text, PERFORMANCE_TOPIC_TERMS):
         bonus += 5
-    return min(bonus, 12)
+    if _contains_any(text, HIGH_PERFORMANCE_INDUSTRY_TERMS) or any(t in technologies for t in ("gpu", "cpu", "chipset", "display", "pc_laptop")):
+        bonus += 8
+    if _contains_any(text, ["반도체", "hbm", "후공정", "파운드리", "tc본더", "boe", "oled", "디스플레이"]):
+        bonus += 5
+    return min(bonus, 18)
+
+
+def low_retention_format_penalty(text: str) -> int:
+    """Demote broad advice/question titles that underperformed in channel analytics."""
+    if not _contains_any(text, LOW_RETENTION_ADVICE_TERMS):
+        return 0
+    if _contains_any(text, HIGH_PERFORMANCE_INDUSTRY_TERMS):
+        return 4
+    return 10
 
 
 def ai_service_solution_bonus(text: str) -> int:
@@ -355,6 +388,8 @@ def strategic_importance_score(text: str, event_type: str, brands: list[str], te
         score += 3
     if _contains_any(text, AI_SERVICE_SOLUTION_TERMS) and _contains_any(text, AI_MODEL_RELEASE_TERMS):
         score += 3
+    if _contains_any(text, HIGH_PERFORMANCE_INDUSTRY_TERMS):
+        score += 4
     if _contains_any(text, ["developer", "sdk", "framework", "benchmark", "quantization", "개발자", "프레임워크", "벤치마크", "양자화"]):
         score -= 3
     return max(0, min(score, 12))
@@ -417,12 +452,12 @@ def topic_bucket(text: str, technologies: list[str], angle: dict | None = None) 
         return "ranking_comparison"
     if _contains_any(text, AI_SERVICE_SOLUTION_TERMS) and _contains_any(text, AI_MODEL_RELEASE_TERMS):
         return "ai_service_model"
-    if _contains_any(text, PERFORMANCE_TOPIC_TERMS):
-        return "smartphone_foldable"
     if any(t in technologies for t in ("keyboard_mouse", "audio_wearables", "wearable", "bluetooth", "wifi")):
         return "peripheral_wearable_audio"
     if any(t in technologies for t in ("cpu", "gpu", "chipset", "pc_laptop", "display")):
         return "pc_chip_device"
+    if _contains_any(text, PERFORMANCE_TOPIC_TERMS):
+        return "smartphone_foldable"
     if technologies:
         return "hardware_device"
     return "general_it"
@@ -458,9 +493,9 @@ def select_portfolio_articles(articles: Iterable[dict], count: int = 5) -> list[
     """Select a diversified Shorts batch instead of simply taking the top N."""
     ranked = sorted(articles, key=lambda item: item.get("shorts_score", 0), reverse=True)
     preferred_buckets = [
+        "pc_chip_device",
         "smartphone_foldable",
         "ai_service_model",
-        "pc_chip_device",
         "peripheral_wearable_audio",
         "ranking_comparison",
         "hardware_device",
@@ -517,6 +552,7 @@ def score_article(article: dict) -> dict:
     angle = determine_shorts_angle(text, event_type, brands, technologies, audience_fit)
     bucket = topic_bucket(text, technologies, angle)
     learned_bonus = learned_performance_weight_bonus(bucket, audience_fit, angle)
+    retention_penalty = low_retention_format_penalty(text)
 
     llm_score = min(100, source_score + event_score + keyword_score - noise_penalty)
     launch_priority_bonus = LAUNCH_PRIORITY_BONUS.get(event_type, 0)
@@ -536,6 +572,7 @@ def score_article(article: dict) -> dict:
                 + strategic_score
                 + learned_bonus
                 - scope_penalty
+                - retention_penalty
             ),
         ),
     )
@@ -568,6 +605,7 @@ def score_article(article: dict) -> dict:
             "shorts_angle": angle,
             "topic_bucket": bucket,
             "learned_performance_weight_bonus": learned_bonus,
+            "low_retention_format_penalty": retention_penalty,
             "scope_drift_penalty": scope_penalty,
             "llm_score": llm_score,
             "shorts_score": shorts_score,

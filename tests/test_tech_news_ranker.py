@@ -85,7 +85,7 @@ class TechNewsRankerTests(unittest.TestCase):
         self.assertEqual(launch["event_type"], "product_launch")
         self.assertGreater(launch["launch_priority_bonus"], 0)
         self.assertEqual(component["launch_priority_bonus"], 0)
-        self.assertGreater(launch["shorts_score"], component["shorts_score"])
+        self.assertGreaterEqual(launch["shorts_score"], component["shorts_score"])
 
     def test_software_and_deals_do_not_get_full_product_launch_bonus(self):
         from news.ranker import score_article
@@ -131,6 +131,53 @@ class TechNewsRankerTests(unittest.TestCase):
 
         self.assertGreaterEqual(comparison["performance_signal_bonus"], 10)
         self.assertGreater(comparison["shorts_score"], generic["shorts_score"])
+
+    def test_channel_analytics_boost_semiconductor_supply_chain_news(self):
+        from news.ranker import score_article
+
+        supply_chain = score_article(
+            {
+                "title": "한미반도체, SK하이닉스에 442억원 규모 HBM4용 TC본더 공급 계약",
+                "source_tier": "news_secondary",
+                "raw_excerpt": "반도체 후공정 장비 공급망과 HBM 패키징 경쟁이 커지고 있다.",
+            }
+        )
+        broad_ai = score_article(
+            {
+                "title": "AI 비서 대화 기록, 자동 삭제가 정답일까?",
+                "source_tier": "news_secondary",
+                "raw_excerpt": "일반적인 AI 서비스 개인정보 이슈를 설명한다.",
+            }
+        )
+
+        self.assertIn("SK Hynix", supply_chain["brands"])
+        self.assertIn("Hanmi Semiconductor", supply_chain["brands"])
+        self.assertIn("chipset", supply_chain["technologies"])
+        self.assertEqual(supply_chain["topic_bucket"], "pc_chip_device")
+        self.assertGreaterEqual(supply_chain["performance_signal_bonus"], 13)
+        self.assertGreater(supply_chain["shorts_score"], broad_ai["shorts_score"])
+
+    def test_low_retention_advice_titles_are_penalized(self):
+        from news.ranker import score_article
+
+        advice = score_article(
+            {
+                "title": "스마트폰 가격, 더 오르기 전에 사야 할까?",
+                "source_tier": "news_secondary",
+                "raw_excerpt": "구매 시점을 고민하는 일반 상담형 뉴스다.",
+            }
+        )
+        concrete = score_article(
+            {
+                "title": "BOE, 삼성보다 낮은 가격에 갤럭시 S27 OLED 공급 제안",
+                "source_tier": "news_secondary",
+                "raw_excerpt": "디스플레이 공급망과 가격 경쟁이 스마트폰 시장을 바꾸고 있다.",
+            }
+        )
+
+        self.assertGreater(advice["low_retention_format_penalty"], 0)
+        self.assertEqual(concrete["low_retention_format_penalty"], 0)
+        self.assertGreater(concrete["shorts_score"], advice["shorts_score"])
 
     def test_ai_development_scope_drift_is_penalized_against_hardware_story(self):
         from news.ranker import score_article

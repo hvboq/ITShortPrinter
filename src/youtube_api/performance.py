@@ -186,13 +186,23 @@ def classify_topic(title: str, description: str = "") -> dict[str, Any]:
     text = f"{title} {description}".lower()
     rules = [
         ("smartphone/foldable", ["스마트폰", "폴드", "fold", "phone", "razr", "honor", "pixel", "galaxy", "iphone"]),
-        ("chip/pc/semiconductor", ["cpu", "gpu", "amd", "인텔", "intel", "qualcomm", "칩", "반도체", "컴퓨텍스", "pc"]),
+        ("chip/pc/semiconductor", ["cpu", "gpu", "amd", "인텔", "intel", "qualcomm", "칩", "반도체", "hbm", "파운드리", "후공정", "tc본더", "컴퓨텍스", "pc"]),
         ("wearable/accessory", ["watch", "워치", "wearable", "밴드", "loop"]),
         ("gaming/emulation", ["게임", "emulat", "ps2", "에뮬"]),
         ("ai/software", ["openai", "chatgpt", "ai", "인공지능", "소프트웨어"]),
     ]
     matched = [label for label, keywords in rules if any(k in text for k in keywords)]
-    allowed_fit = "ai/software" not in matched
+    # IT한 하루 is intentionally about IT hardware plus AI industry. Treat AI stories
+    # as in-scope when they are tied to chips/PC/GPU/supply-chain or consumer AI
+    # services, and only warn on developer/research-only software topics.
+    developer_only_terms = ["sdk", "framework", "api", "coding", "benchmark", "개발자", "프레임워크", "벤치마크", "코딩"]
+    has_developer_only_terms = any(k in text for k in developer_only_terms)
+    has_hardware_category = bool({"chip/pc/semiconductor", "smartphone/foldable", "wearable/accessory"}.intersection(matched))
+    has_consumer_ai = any(k in text for k in ["chatgpt", "gemini", "claude", "제미나이", "클로드", "음성", "검색", "앱"])
+    has_hardware_or_consumer_ai = has_hardware_category or has_consumer_ai
+    allowed_fit = not ("ai/software" in matched and has_developer_only_terms and not has_hardware_category)
+    if "ai/software" in matched and not has_hardware_or_consumer_ai and has_developer_only_terms:
+        allowed_fit = False
     return {
         "topic_categories": matched or ["other_hardware_or_it"],
         "fits_current_channel_scope": allowed_fit,
