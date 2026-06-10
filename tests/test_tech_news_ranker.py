@@ -132,6 +132,14 @@ class TechNewsRankerTests(unittest.TestCase):
         self.assertGreaterEqual(comparison["performance_signal_bonus"], 10)
         self.assertGreater(comparison["shorts_score"], generic["shorts_score"])
 
+    def test_learned_performance_weights_prioritize_pc_chip_bucket(self):
+        from news.ranker import learned_performance_weight_bonus
+
+        self.assertGreater(
+            learned_performance_weight_bonus("pc_chip_device", "consumer", {"angle_type": "market_competition"}),
+            learned_performance_weight_bonus("smartphone_foldable", "consumer", {"angle_type": "launch_impact"}),
+        )
+
     def test_channel_analytics_boost_semiconductor_supply_chain_news(self):
         from news.ranker import score_article
 

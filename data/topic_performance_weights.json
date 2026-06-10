@@ -1,12 +1,12 @@
 {
   "description": "Adaptive Shorts ranking weights derived from configured YouTube channel performance reviews. Keep values modest to avoid overfitting small samples.",
   "topic_buckets": {
-    "ranking_comparison": 3,
-    "smartphone_foldable": 2,
-    "ai_service_model": 1,
-    "pc_chip_device": 0,
+    "ranking_comparison": 2,
+    "smartphone_foldable": 1,
+    "ai_service_model": 0,
+    "pc_chip_device": 4,
     "peripheral_wearable_audio": 0,
-    "hardware_device": 1,
+    "hardware_device": 0,
     "general_it": -1
   },
   "audience_fit": {
