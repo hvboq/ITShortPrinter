@@ -98,6 +98,10 @@ def matches_requested_topic(article: Any, topic: str) -> bool:
             "prototype",
             "특허",
             "가능성",
+            "출시설",
+            "rumored",
+            "expected release",
+            "what to expect",
             "delay",
             "delayed",
             "postpone",
@@ -105,11 +109,30 @@ def matches_requested_topic(article: Any, topic: str) -> bool:
             "연기",
             "지연",
             "무기한",
+            "기관 대상",
+            "장외",
+            "예측시장",
+            "트레이딩",
+            "데스크",
+            "거래소",
+            "거래",
+            "투자",
+            "펀드",
+            "증권",
+            "stock",
+            "trading",
+            "prediction market",
+            "exchange",
+            "fund",
         ],
     )
     if has_blocked_term:
         return False
     if event_type == "product_launch":
+        return True
+    # Certification rows can still be launchable when the title is about a real
+    # preorder/sale opening; the ranker may classify them as certification first.
+    if event_type == "certification" and has_launch_term and _contains_any(text, ["사전예약", "사전 예약", "예약", "preorder", "pre-order", "판매"]):
         return True
     # Launch/release stories with price or availability words are often scored as
     # price_availability because the ranker checks those terms first. They still

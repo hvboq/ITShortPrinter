@@ -157,7 +157,8 @@ HIGH_PERFORMANCE_INDUSTRY_TERMS = [
     "gpu", "엔비디아", "삼성디스플레이", "디스플레이", "올레드", "컴퓨텍스",
 ]
 LOW_RETENTION_ADVICE_TERMS = [
-    "살 만할까", "사야 할까", "기다릴", "쓸모 있을까", "정답일까", "영향 있을까",
+    "살 만할까", "사야 할까", "사도 될까", "기다릴", "쓸모 있을까", "정답일까", "영향 있을까",
+    "오나?", "살펴볼 때", "지연설", "고객만족도", "판매를 늘린", "개막", "검토", "언급",
     "should you buy", "worth buying", "wait for", "is it worth", "does it matter",
 ]
 

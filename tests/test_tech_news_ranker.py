@@ -175,6 +175,13 @@ class TechNewsRankerTests(unittest.TestCase):
                 "raw_excerpt": "구매 시점을 고민하는 일반 상담형 뉴스다.",
             }
         )
+        delay_advice = score_article(
+            {
+                "title": "갤럭시 S26 지연설, 지금 폰 사도 될까?",
+                "source_tier": "news_secondary",
+                "raw_excerpt": "출시 지연 가능성을 바탕으로 구매 시점을 묻는 상담형 뉴스다.",
+            }
+        )
         concrete = score_article(
             {
                 "title": "BOE, 삼성보다 낮은 가격에 갤럭시 S27 OLED 공급 제안",
@@ -184,8 +191,40 @@ class TechNewsRankerTests(unittest.TestCase):
         )
 
         self.assertGreater(advice["low_retention_format_penalty"], 0)
+        self.assertGreater(delay_advice["low_retention_format_penalty"], 0)
         self.assertEqual(concrete["low_retention_format_penalty"], 0)
         self.assertGreater(concrete["shorts_score"], advice["shorts_score"])
+        self.assertGreater(concrete["shorts_score"], delay_advice["shorts_score"])
+
+    def test_channel_performance_penalizes_broad_update_and_event_opening_titles(self):
+        from news.ranker import score_article
+
+        event_opening = score_article(
+            {
+                "title": "컴퓨텍스 이천이십육 개막, 함께하는 인공지능 시대를 말하다",
+                "source_tier": "news_secondary",
+                "raw_excerpt": "행사 개막과 일반적인 AI 흐름을 넓게 소개한다.",
+            }
+        )
+        concrete_gpu = score_article(
+            {
+                "title": "정부, 엔비디아 GPU 9704장 확보 이달 구매 발주",
+                "source_tier": "news_secondary",
+                "raw_excerpt": "구체적인 GPU 수량과 구매 발주가 AI 인프라 공급에 영향을 준다.",
+            }
+        )
+
+        self.assertGreater(event_opening["low_retention_format_penalty"], 0)
+        self.assertEqual(concrete_gpu["low_retention_format_penalty"], 0)
+        self.assertGreater(concrete_gpu["shorts_score"], event_opening["shorts_score"])
+
+    def test_latest_performance_weights_keep_pc_chip_ahead_of_general_ai(self):
+        from news.ranker import learned_performance_weight_bonus
+
+        self.assertGreater(
+            learned_performance_weight_bonus("pc_chip_device", "consumer", {"angle_type": "market_competition"}),
+            learned_performance_weight_bonus("ai_service_model", "consumer", {"angle_type": "consumer_ai_model_shift"}),
+        )
 
     def test_ai_development_scope_drift_is_penalized_against_hardware_story(self):
         from news.ranker import score_article

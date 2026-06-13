@@ -114,6 +114,32 @@ class TwoHourShortJobTests(unittest.TestCase):
 
         self.assertFalse(job.matches_requested_topic(delayed_article, "product_launch"))
 
+    def test_product_launch_topic_rejects_financial_trading_desk_launches(self) -> None:
+        job = load_job_module()
+        finance_article = {
+            "title": "갤럭시 디지털, 기관 대상 장외 예측시장 트레이딩 데스크 출시",
+            "raw_excerpt": "금융 거래 서비스를 위한 신규 데스크를 출시했다.",
+            "event_type": "product_launch",
+        }
+
+        self.assertFalse(job.matches_requested_topic(finance_article, "product_launch"))
+
+    def test_product_launch_topic_rejects_rumored_release_but_accepts_real_preorder(self) -> None:
+        job = load_job_module()
+        rumored = {
+            "title": "책처럼 접는 애플 폴더블폰 출시설, 아이폰 울트라 사양 6가지",
+            "raw_excerpt": "Rumored features and expected release timing.",
+            "event_type": "product_launch",
+        }
+        preorder = {
+            "title": "갤럭시 Z 트라이폴드 중국서 사전 예약 개시",
+            "raw_excerpt": "새 폴더블 스마트폰의 예약 판매가 시작됐다.",
+            "event_type": "certification",
+        }
+
+        self.assertFalse(job.matches_requested_topic(rumored, "product_launch"))
+        self.assertTrue(job.matches_requested_topic(preorder, "product_launch"))
+
     def test_select_next_article_can_limit_candidates_to_product_launch_topic(self) -> None:
         job = load_job_module()
         articles = [

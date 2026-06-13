@@ -1,28 +1,29 @@
 {
   "description": "Adaptive Shorts ranking weights derived from configured YouTube channel performance reviews. Keep values modest to avoid overfitting small samples.",
+  "last_reviewed_at": "2026-06-13",
   "topic_buckets": {
-    "ranking_comparison": 2,
-    "smartphone_foldable": 1,
-    "ai_service_model": 0,
-    "pc_chip_device": 4,
-    "peripheral_wearable_audio": 0,
+    "ranking_comparison": 1,
+    "smartphone_foldable": 0,
+    "ai_service_model": -1,
+    "pc_chip_device": 5,
+    "peripheral_wearable_audio": 1,
     "hardware_device": 0,
-    "general_it": -1
+    "general_it": -2
   },
   "audience_fit": {
     "consumer": 2,
     "prosumer": 1,
     "business_user": 0,
-    "developer": -4,
-    "researcher": -4
+    "developer": -5,
+    "researcher": -5
   },
   "angles": {
-    "ranking_comparison": 2,
-    "consumer_ai_model_shift": 1,
+    "ranking_comparison": 1,
+    "consumer_ai_model_shift": 0,
     "launch_impact": 1,
     "price_value_shift": 1,
     "market_competition": 2,
     "why_it_matters": 0,
-    "scope_risk": -4
+    "scope_risk": -5
   }
 }
