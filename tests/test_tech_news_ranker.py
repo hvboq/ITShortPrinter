@@ -401,6 +401,40 @@ class TechNewsRankerTests(unittest.TestCase):
         self.assertIn("peripheral_wearable_audio", buckets)
         self.assertGreaterEqual(len(set(buckets)), 4)
 
+    def test_geeknews_developer_community_posts_are_demoted(self):
+        from news.ranker import score_article
+
+        repo_tool = score_article(
+            {
+                "source_id": "geeknews",
+                "title": "repo-slopscore: 커밋 기록 분석으로 Git 저장소의 AI/LLM 기여 감지",
+                "source_tier": "tech_secondary",
+                "raw_excerpt": "개발자 Git 저장소와 커밋 기록을 분석하는 오픈소스 도구다.",
+            }
+        )
+        coding_agent = score_article(
+            {
+                "source_id": "geeknews",
+                "title": "macOS에서 로컬 코딩 에이전트 설정하는 방법",
+                "source_tier": "tech_secondary",
+                "raw_excerpt": "CLI와 터미널을 쓰는 개발자 도구 설정 가이드다.",
+            }
+        )
+        hardware = score_article(
+            {
+                "source_id": "geeknews",
+                "title": "오라클, Ampere A1 인스턴스 무료 사용 한도 축소",
+                "source_tier": "tech_secondary",
+                "raw_excerpt": "클라우드 ARM 서버 인스턴스 공급 정책 변화다.",
+            }
+        )
+
+        self.assertGreaterEqual(repo_tool["geeknews_developer_community_penalty"], 40)
+        self.assertGreaterEqual(coding_agent["geeknews_developer_community_penalty"], 40)
+        self.assertEqual(hardware["geeknews_developer_community_penalty"], 0)
+        self.assertLess(repo_tool["shorts_score"], hardware["shorts_score"])
+        self.assertLess(coding_agent["shorts_score"], hardware["shorts_score"])
+
     def test_shorts_prompt_includes_angle_and_viewer_payoff(self):
         from news.ranker import score_article
         from news.shorts import build_shorts_script_prompt

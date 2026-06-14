@@ -146,8 +146,17 @@ ENTERPRISE_PRODUCT_TERMS = [
     "기업용", "비즈니스용", "업무용", "상업용", "법인", "기업 고객", "기업 시장", "사무용", "오피스용",
 ]
 DEVELOPER_AUDIENCE_TERMS = AI_DEVELOPMENT_TERMS + [
-    "github", "repository", "cli", "library", "framework", "benchmark", "inference", "quantization", "compression",
-    "깃허브", "라이브러리", "프레임워크", "벤치마크", "추론 최적화", "양자화", "압축",
+    "github", "repository", "repo", "commit", "pull request", "cli", "terminal", "command line",
+    "library", "framework", "benchmark", "inference", "quantization", "compression", "open source",
+    "깃", "깃허브", "저장소", "커밋", "풀리퀘스트", "터미널", "명령줄", "커맨드라인",
+    "라이브러리", "프레임워크", "벤치마크", "추론 최적화", "양자화", "압축", "오픈소스",
+]
+GEEKNEWS_DEVELOPER_COMMUNITY_TERMS = [
+    "coding agent", "local coding", "developer tool", "dev tool", "github", "repository", "repo", "commit",
+    "pull request", "cli", "terminal", "command line", "framework", "library", "sdk", "benchmark",
+    "open source", "self-hosted", "codex", "prompt", "코덱스", "프롬프트", "코딩 에이전트", "로컬 코딩", "개발 도구", "개발자 도구",
+    "깃", "깃허브", "저장소", "커밋", "풀리퀘스트", "터미널", "명령줄", "커맨드라인",
+    "프레임워크", "라이브러리", "벤치마크", "오픈소스", "설정하는 방법", "사용하는 방법",
 ]
 STRATEGIC_IMPORTANCE_TERMS = [
     "first", "flagship", "mainstream", "affordable", "cheaper", "price cut", "faster", "battery", "foldable",
@@ -344,6 +353,19 @@ def ai_service_solution_bonus(text: str) -> int:
     if _contains_any(text, AI_MODEL_RELEASE_TERMS):
         return 8
     return 4
+
+
+def geeknews_developer_community_penalty(text: str, source_id: str, technologies: list[str]) -> int:
+    """Demote GeekNews posts that are useful for developers but weak for IT한 하루 viewers."""
+    if source_id != "geeknews":
+        return 0
+    if not _contains_any(text, GEEKNEWS_DEVELOPER_COMMUNITY_TERMS):
+        return 0
+    if _contains_any(text, HIGH_PERFORMANCE_INDUSTRY_TERMS) or any(
+        tech in technologies for tech in ("gpu", "cpu", "chipset", "display", "pc_laptop")
+    ):
+        return 15
+    return 45
 
 
 def scope_drift_penalty(text: str, event_type: str) -> int:
@@ -571,6 +593,9 @@ def score_article(article: dict) -> dict:
     adaptive_bonus = performance_signal_bonus(text, technologies)
     ai_service_bonus = ai_service_solution_bonus(text)
     scope_penalty = scope_drift_penalty(text, event_type)
+    geeknews_penalty = geeknews_developer_community_penalty(
+        text, article.get("source_id", ""), technologies
+    )
     audience_fit = classify_audience_fit(text, technologies)
     audience_score = audience_fit_score(audience_fit)
     strategic_score = strategic_importance_score(text, event_type, brands, technologies)
@@ -598,6 +623,7 @@ def score_article(article: dict) -> dict:
                 + strategic_score
                 + learned_bonus
                 - scope_penalty
+                - geeknews_penalty
                 - retention_penalty
                 - enterprise_penalty
             ),
@@ -639,6 +665,7 @@ def score_article(article: dict) -> dict:
             "low_retention_format_penalty": retention_penalty,
             "enterprise_product_penalty": enterprise_penalty,
             "scope_drift_penalty": scope_penalty,
+            "geeknews_developer_community_penalty": geeknews_penalty,
             "llm_score": llm_score,
             "shorts_score": shorts_score,
             "alert_allowed": alert_allowed,
