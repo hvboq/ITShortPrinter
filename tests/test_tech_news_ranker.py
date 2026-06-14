@@ -111,6 +111,28 @@ class TechNewsRankerTests(unittest.TestCase):
         self.assertEqual(deal["event_type"], "price_availability")
         self.assertLess(deal["launch_priority_bonus"], 12)
 
+    def test_credit_card_partnership_launch_is_scope_drift(self):
+        from news.ranker import score_article
+
+        card = score_article(
+            {
+                "title": "삼성카드, 롯데홈쇼핑 제휴 카드 출시",
+                "source_tier": "news_secondary",
+                "raw_excerpt": "결제금액 할인 혜택을 제공하는 신용카드 상품이다.",
+            }
+        )
+        graphics = score_article(
+            {
+                "title": "엔비디아 RTX 5090 그래픽카드 국내 출시",
+                "source_tier": "news_secondary",
+                "raw_excerpt": "새 GPU 제품의 국내 판매가 시작됐다.",
+            }
+        )
+
+        self.assertGreaterEqual(card["scope_drift_penalty"], 50)
+        self.assertFalse(card["alert_allowed"])
+        self.assertLess(card["shorts_score"], graphics["shorts_score"])
+
     def test_channel_performance_signals_boost_rankings_and_phone_comparisons(self):
         from news.ranker import score_article
 

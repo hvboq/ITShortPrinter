@@ -124,6 +124,22 @@ class TwoHourShortJobTests(unittest.TestCase):
 
         self.assertFalse(job.matches_requested_topic(finance_article, "product_launch"))
 
+    def test_product_launch_topic_rejects_credit_card_partnership_launches(self) -> None:
+        job = load_job_module()
+        card_article = {
+            "title": "삼성카드, 롯데홈쇼핑 제휴 카드 출시",
+            "raw_excerpt": "결제금액 할인 혜택을 제공하는 신용카드 상품을 선보였다.",
+            "event_type": "product_launch",
+        }
+        graphics_article = {
+            "title": "엔비디아 RTX 5090 그래픽카드 국내 출시",
+            "raw_excerpt": "새 GPU 제품의 국내 판매가 시작됐다.",
+            "event_type": "product_launch",
+        }
+
+        self.assertFalse(job.matches_requested_topic(card_article, "product_launch"))
+        self.assertTrue(job.matches_requested_topic(graphics_article, "product_launch"))
+
     def test_product_launch_topic_rejects_rumored_release_but_accepts_real_preorder(self) -> None:
         job = load_job_module()
         rumored = {

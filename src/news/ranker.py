@@ -127,6 +127,11 @@ AVOID_TOPIC_TERMS = [
     "harness engineering", "하네스 엔지니어링", "turboquant", "turbo quant", "터보퀀트",
     "app store policy",
 ]
+FINANCE_FALSE_POSITIVE_TERMS = [
+    "credit card", "payment card", "card issuer", "card company", "financial card",
+    "신용카드", "체크카드", "제휴 카드", "카드사", "삼성카드", "롯데카드", "현대카드",
+    "결제금액", "홈쇼핑", "금융", "여신", "카드 혜택", "할부",
+]
 
 CONSUMER_AI_TERMS = [
     "voice", "image", "search", "app", "mobile", "free", "paid plan", "subscription", "web", "assistant",
@@ -327,6 +332,8 @@ def ai_service_solution_bonus(text: str) -> int:
 def scope_drift_penalty(text: str, event_type: str) -> int:
     if _contains_any(text, AVOID_TOPIC_TERMS):
         return 30
+    if _contains_any(text, FINANCE_FALSE_POSITIVE_TERMS):
+        return 55
     if _contains_any(text, AI_SERVICE_SOLUTION_TERMS) and _contains_any(text, AI_MODEL_RELEASE_TERMS):
         return 0
     if _contains_any(text, AI_DEVELOPMENT_TERMS):
