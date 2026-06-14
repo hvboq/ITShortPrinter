@@ -32,6 +32,28 @@ class RssFetcherTests(unittest.TestCase):
         self.assertEqual(articles[0]["url"], "https://example.com/iphone")
         self.assertIn("OLED", articles[0]["raw_excerpt"])
 
+    def test_parse_atom_entries_into_normalized_articles(self):
+        from news.fetcher import parse_rss
+
+        xml = """<?xml version="1.0" encoding="UTF-8"?>
+        <feed xmlns="http://www.w3.org/2005/Atom">
+          <entry>
+            <title>GLM 5.2 출시</title>
+            <link rel="alternate" type="text/html" href="https://news.hada.io/topic?id=30478" />
+            <summary>오픈소스 모델과 긴 컨텍스트 지원 소식입니다.</summary>
+            <published>2026-06-14T13:29:43+09:00</published>
+          </entry>
+        </feed>
+        """
+
+        articles = parse_rss(xml, source_id="geeknews", source_name="GeekNews", source_tier="tech_secondary")
+
+        self.assertEqual(len(articles), 1)
+        self.assertEqual(articles[0]["source_id"], "geeknews")
+        self.assertEqual(articles[0]["title"], "GLM 5.2 출시")
+        self.assertEqual(articles[0]["url"], "https://news.hada.io/topic?id=30478")
+        self.assertIn("오픈소스 모델", articles[0]["raw_excerpt"])
+
 
 if __name__ == "__main__":
     unittest.main()

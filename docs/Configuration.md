@@ -91,7 +91,7 @@ All your configurations live in a root-level `config.json`, which starts as a co
     "max_candidates_per_source": 6,
     "max_selected_articles": 5,
     "use_llm_scoring": true,
-    "sources": ["theverge", "zdnet_korea", "bloter"],
+    "sources": ["theverge", "zdnet_korea", "bloter", "geeknews"],
     "priority_keywords": [
       "samsung",
       "galaxy",

@@ -42,6 +42,12 @@ PHASE_1_SOURCES = [
         "rss_url": "https://underkg.co.kr:44391/rss",
     },
     {
+        "id": "geeknews",
+        "name": "GeekNews",
+        "tier": "tech_secondary",
+        "rss_url": "https://feeds.feedburner.com/geeknews-feed",
+    },
+    {
         "id": "google_news_query_launches_ko",
         "name": "Google News KR Launch Query",
         "tier": "search_aggregator",

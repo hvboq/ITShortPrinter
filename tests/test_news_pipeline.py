@@ -48,7 +48,7 @@ class NewsPipelineTests(unittest.TestCase):
             "max_candidates_per_source": 3,
             "max_selected_articles": 3,
             "use_llm_scoring": True,
-            "sources": ["theverge", "zdnet_korea", "bloter"],
+            "sources": ["theverge", "zdnet_korea", "bloter", "geeknews"],
             "priority_keywords": ["samsung", "udc", "battery", "launch", "출시"],
             "scoring_weights": {
                 "public_interest": 0.35,
@@ -136,10 +136,38 @@ class NewsPipelineTests(unittest.TestCase):
             ("theverge", "https://www.theverge.com/topic/ai", {"www.theverge.com", "theverge.com"}),
             ("bloter", "https://www.bloter.net/newsroom", {"www.bloter.net", "bloter.net"}),
             ("bloter", "https://www.bloter.net/section/it", {"www.bloter.net", "bloter.net"}),
+            ("geeknews", "https://news.hada.io/rss/news", {"news.hada.io"}),
         ]
 
         for source, url, domains in blocked_cases:
             self.assertFalse(pipeline._is_valid_candidate_url(source, url, domains))
+
+    def test_geeknews_atom_feed_urls_are_accepted(self) -> None:
+        pipeline = self.build_pipeline()
+        atom = """<?xml version="1.0" encoding="UTF-8"?>
+        <feed xmlns="http://www.w3.org/2005/Atom">
+          <entry>
+            <title>GLM 5.2 출시</title>
+            <link rel="alternate" type="text/html" href="https://news.hada.io/topic?id=30478" />
+          </entry>
+        </feed>
+        """
+        pipeline.session.get.return_value = MockResponse(atom)
+
+        urls = pipeline._fetch_rss_urls(
+            "https://feeds.feedburner.com/geeknews-feed",
+            "geeknews",
+            {"news.hada.io"},
+        )
+
+        self.assertEqual(urls, ["https://news.hada.io/topic?id=30478"])
+        self.assertTrue(
+            pipeline._is_valid_candidate_url(
+                "geeknews",
+                "https://news.hada.io/topic?id=30478",
+                {"news.hada.io"},
+            )
+        )
 
     def test_article_dedupe_uses_normalized_title(self) -> None:
         pipeline = self.build_pipeline()

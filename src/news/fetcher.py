@@ -14,6 +14,13 @@ def _text(element: ET.Element | None, default: str = "") -> str:
     return html.unescape(element.text.strip())
 
 
+def _child_text(element: ET.Element, local_name: str, default: str = "") -> str:
+    return _text(element.find(local_name)) or _text(
+        element.find(f"{{http://www.w3.org/2005/Atom}}{local_name}"),
+        default,
+    )
+
+
 def _parse_date(raw: str) -> str | None:
     if not raw:
         return None
@@ -32,13 +39,13 @@ def parse_rss(xml_text: str, source_id: str, source_name: str, source_tier: str)
     articles = []
     fetched_at = datetime.now(timezone.utc).isoformat()
     for item in items:
-        title = _text(item.find("title"))
-        link = _text(item.find("link"))
+        title = _child_text(item, "title")
+        link = _child_text(item, "link")
         if not link:
             atom_link = item.find("{http://www.w3.org/2005/Atom}link")
             link = atom_link.attrib.get("href", "") if atom_link is not None else ""
-        excerpt = _text(item.find("description")) or _text(item.find("summary"))
-        published = _text(item.find("pubDate")) or _text(item.find("published")) or _text(item.find("updated"))
+        excerpt = _child_text(item, "description") or _child_text(item, "summary") or _child_text(item, "content")
+        published = _child_text(item, "pubDate") or _child_text(item, "published") or _child_text(item, "updated")
 
         if not title or not link:
             continue

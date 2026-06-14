@@ -71,6 +71,12 @@ class NewsPipeline:
             ],
             "allowed_domains": {"www.bloter.net", "bloter.net"},
         },
+        "geeknews": {
+            "homepage": "https://news.hada.io/",
+            "rss": "https://feeds.feedburner.com/geeknews-feed",
+            "seed_urls": [],
+            "allowed_domains": {"news.hada.io"},
+        },
     }
 
     GENERAL_NON_ARTICLE_PATH_TOKENS = (
@@ -189,8 +195,14 @@ class NewsPipeline:
 
         root = ElementTree.fromstring(response.text)
         urls = []
-        for item in root.findall(".//item"):
+        items = root.findall(".//item")
+        if not items:
+            items = root.findall(".//{http://www.w3.org/2005/Atom}entry")
+        for item in items:
             link = item.findtext("link", default="").strip()
+            if not link:
+                atom_link = item.find("{http://www.w3.org/2005/Atom}link")
+                link = atom_link.attrib.get("href", "") if atom_link is not None else ""
             if link and self._is_valid_candidate_url(source, link, allowed_domains):
                 urls.append(link)
         return urls
@@ -241,6 +253,9 @@ class NewsPipeline:
 
         if source == "bloter":
             return path.endswith("/articleview.html") and "idxno=" in parsed.query
+
+        if source == "geeknews":
+            return path == "/topic" and "id=" in parsed.query
 
         return False
 
