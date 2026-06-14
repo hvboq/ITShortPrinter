@@ -7,10 +7,25 @@ SUBTITLE_BACKGROUND_FILL = (0, 0, 0, 255)
 SUBTITLE_TEXT_FILL = (255, 255, 255, 255)
 SUBTITLE_TEXT_STROKE_FILL = (0, 0, 0, 255)
 
+SUBTITLE_TEXT_CORRECTIONS = {
+    "랜오버": "레노버",
+    "랜 오버": "레노버",
+    "랜노버": "레노버",
+    "레너버": "레노버",
+}
+
+
+def normalize_subtitle_text(text: str) -> str:
+    """Apply deterministic brand/term corrections to generated subtitles."""
+    corrected = str(text or "")
+    for wrong, right in SUBTITLE_TEXT_CORRECTIONS.items():
+        corrected = corrected.replace(wrong, right)
+    return corrected
+
 
 def split_script_for_subtitles(text: str, max_chars: int = 34) -> list[str]:
     """Split a Korean narration script into short subtitle chunks."""
-    cleaned = re.sub(r"\s+", " ", str(text or "")).strip()
+    cleaned = re.sub(r"\s+", " ", normalize_subtitle_text(text)).strip()
     if not cleaned:
         return []
 
@@ -140,7 +155,7 @@ def parse_srt_entries(srt_path: str) -> list[tuple[float, float, str]]:
         if len(lines) < 3 or "-->" not in lines[1]:
             continue
         start_raw, end_raw = [part.strip() for part in lines[1].split("-->", 1)]
-        text = "\n".join(lines[2:])
+        text = normalize_subtitle_text("\n".join(lines[2:]))
         entries.append((parse_srt_timestamp(start_raw), parse_srt_timestamp(end_raw), text))
     return entries
 

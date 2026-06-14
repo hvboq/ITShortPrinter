@@ -880,11 +880,11 @@ class YouTube:
         config = assemblyai.TranscriptionConfig()
         transcriber = assemblyai.Transcriber(config=config)
         transcript = transcriber.transcribe(audio_path)
-        subtitles = transcript.export_subtitles_srt()
+        subtitles = youtube_subtitles.normalize_subtitle_text(transcript.export_subtitles_srt())
 
         srt_path = os.path.join(ROOT_DIR, ".mp", str(uuid4()) + ".srt")
 
-        with open(srt_path, "w") as file:
+        with open(srt_path, "w", encoding="utf-8") as file:
             file.write(subtitles)
 
         return srt_path
@@ -931,7 +931,7 @@ class YouTube:
         for idx, segment in enumerate(segments, start=1):
             start = self._format_srt_timestamp(segment.start)
             end = self._format_srt_timestamp(segment.end)
-            text = str(segment.text).strip()
+            text = youtube_subtitles.normalize_subtitle_text(str(segment.text).strip())
 
             if not text:
                 continue

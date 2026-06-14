@@ -63,6 +63,21 @@ class SubtitleFallbackTests(unittest.TestCase):
         self.assertEqual(youtube_subtitles.SUBTITLE_BACKGROUND_FILL[:3], (0, 0, 0))
         self.assertEqual(youtube_subtitles.SUBTITLE_BACKGROUND_FILL[3], 255)
 
+    def test_subtitle_text_corrections_fix_lenovo_mistranscription(self):
+        from classes import youtube_subtitles
+
+        content = youtube_subtitles.build_script_srt_content(
+            "랜오버가 새 AI 노트북을 공개했습니다.",
+            duration_seconds=3.0,
+        )
+
+        self.assertIn("레노버가 새 AI 노트북", content)
+        self.assertNotIn("랜오버", content)
+        self.assertEqual(
+            youtube_subtitles.normalize_subtitle_text("랜 오버와 랜노버, 레너버"),
+            "레노버와 레노버, 레노버",
+        )
+
 
 if __name__ == "__main__":
     unittest.main()
