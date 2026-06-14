@@ -133,6 +133,36 @@ class TechNewsRankerTests(unittest.TestCase):
         self.assertFalse(card["alert_allowed"])
         self.assertLess(card["shorts_score"], graphics["shorts_score"])
 
+    def test_enterprise_product_launches_are_demoted_against_consumer_products(self):
+        from news.ranker import score_article
+
+        enterprise = score_article(
+            {
+                "title": "레노버, 기업용 ThinkPad AI 노트북 신제품 출시",
+                "source_tier": "news_secondary",
+                "raw_excerpt": "기업 고객과 업무용 시장을 겨냥한 B2B 제품이다.",
+            }
+        )
+        consumer = score_article(
+            {
+                "title": "레노버, 일반 소비자용 AI 노트북 신제품 출시",
+                "source_tier": "news_secondary",
+                "raw_excerpt": "개인 사용자와 학생을 겨냥한 노트북 제품이다.",
+            }
+        )
+        enterprise_gpu = score_article(
+            {
+                "title": "엔비디아, 기업용 GPU 서버 신제품 출시",
+                "source_tier": "news_secondary",
+                "raw_excerpt": "AI 인프라와 데이터센터용 GPU 공급 확대를 겨냥했다.",
+            }
+        )
+
+        self.assertGreater(enterprise["enterprise_product_penalty"], 0)
+        self.assertGreater(enterprise_gpu["enterprise_product_penalty"], 0)
+        self.assertLess(enterprise_gpu["enterprise_product_penalty"], enterprise["enterprise_product_penalty"])
+        self.assertLess(enterprise["shorts_score"], consumer["shorts_score"])
+
     def test_channel_performance_signals_boost_rankings_and_phone_comparisons(self):
         from news.ranker import score_article
 

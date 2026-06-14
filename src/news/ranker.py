@@ -141,6 +141,10 @@ BUSINESS_AI_TERMS = [
     "enterprise", "workspace", "business", "office", "productivity", "team", "workflow",
     "기업", "업무", "생산성", "협업", "팀", "워크스페이스", "오피스",
 ]
+ENTERPRISE_PRODUCT_TERMS = [
+    "enterprise", "business", "commercial", "corporate", "b2b", "workplace", "office", "for teams",
+    "기업용", "비즈니스용", "업무용", "상업용", "법인", "기업 고객", "기업 시장", "사무용", "오피스용",
+]
 DEVELOPER_AUDIENCE_TERMS = AI_DEVELOPMENT_TERMS + [
     "github", "repository", "cli", "library", "framework", "benchmark", "inference", "quantization", "compression",
     "깃허브", "라이브러리", "프레임워크", "벤치마크", "추론 최적화", "양자화", "압축",
@@ -319,6 +323,19 @@ def low_retention_format_penalty(text: str) -> int:
     if _contains_any(text, HIGH_PERFORMANCE_INDUSTRY_TERMS):
         return 4
     return 10
+
+
+def enterprise_product_penalty(text: str, event_type: str, technologies: list[str]) -> int:
+    """Demote enterprise/B2B product launches that are less consumer-friendly for Shorts."""
+    if event_type not in {"product_launch", "price_availability", "component_tech"}:
+        return 0
+    if not _contains_any(text, ENTERPRISE_PRODUCT_TERMS):
+        return 0
+    if _contains_any(text, HIGH_PERFORMANCE_INDUSTRY_TERMS) or any(
+        tech in technologies for tech in ("gpu", "cpu", "chipset", "display")
+    ):
+        return 10
+    return 28
 
 
 def ai_service_solution_bonus(text: str) -> int:
@@ -561,6 +578,7 @@ def score_article(article: dict) -> dict:
     bucket = topic_bucket(text, technologies, angle)
     learned_bonus = learned_performance_weight_bonus(bucket, audience_fit, angle)
     retention_penalty = low_retention_format_penalty(text)
+    enterprise_penalty = enterprise_product_penalty(text, event_type, technologies)
 
     llm_score = min(100, source_score + event_score + keyword_score - noise_penalty)
     launch_priority_bonus = LAUNCH_PRIORITY_BONUS.get(event_type, 0)
@@ -581,9 +599,14 @@ def score_article(article: dict) -> dict:
                 + learned_bonus
                 - scope_penalty
                 - retention_penalty
+                - enterprise_penalty
             ),
         ),
     )
+    if enterprise_penalty >= 20:
+        shorts_score = min(shorts_score, 72)
+    elif enterprise_penalty > 0:
+        shorts_score = min(shorts_score, 88)
 
     alert_allowed = (
         shorts_score >= 75
@@ -614,6 +637,7 @@ def score_article(article: dict) -> dict:
             "topic_bucket": bucket,
             "learned_performance_weight_bonus": learned_bonus,
             "low_retention_format_penalty": retention_penalty,
+            "enterprise_product_penalty": enterprise_penalty,
             "scope_drift_penalty": scope_penalty,
             "llm_score": llm_score,
             "shorts_score": shorts_score,
