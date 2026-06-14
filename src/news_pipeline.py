@@ -77,6 +77,12 @@ class NewsPipeline:
             "seed_urls": [],
             "allowed_domains": {"news.hada.io"},
         },
+        "newstap": {
+            "homepage": "https://www.newstap.co.kr/",
+            "rss": "https://cdn.newstap.co.kr/rss/gn_rss_allArticle.xml",
+            "seed_urls": [],
+            "allowed_domains": {"www.newstap.co.kr", "newstap.co.kr"},
+        },
     }
 
     GENERAL_NON_ARTICLE_PATH_TOKENS = (
@@ -256,6 +262,9 @@ class NewsPipeline:
 
         if source == "geeknews":
             return path == "/topic" and "id=" in parsed.query
+
+        if source == "newstap":
+            return path == "/news/articleview.html" and "idxno=" in parsed.query.lower()
 
         return False
 
@@ -637,6 +646,12 @@ class NewsPipeline:
                 ("attr", "id", "article-view-content-div"),
                 ("attr", "class", "article-view-content-div"),
                 ("attr", "class", "entry-content"),
+                ("tag", "article"),
+            ]
+        elif source == "newstap":
+            selectors = [
+                ("attr", "id", "article-view-content-div"),
+                ("attr", "class", "article-body"),
                 ("tag", "article"),
             ]
 

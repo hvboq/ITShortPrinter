@@ -48,6 +48,12 @@ PHASE_1_SOURCES = [
         "rss_url": "https://feeds.feedburner.com/geeknews-feed",
     },
     {
+        "id": "newstap",
+        "name": "NewsTap",
+        "tier": "news_secondary",
+        "rss_url": "https://cdn.newstap.co.kr/rss/gn_rss_allArticle.xml",
+    },
+    {
         "id": "google_news_query_launches_ko",
         "name": "Google News KR Launch Query",
         "tier": "search_aggregator",
@@ -77,5 +83,11 @@ PRODUCT_LAUNCH_SOURCES = [
         "name": "Google News KR Device Availability Query",
         "tier": "search_aggregator",
         "rss_url": "https://news.google.com/rss/search?q=(%EC%8A%A4%EB%A7%88%ED%8A%B8%ED%8F%B0%20OR%20%EB%85%B8%ED%8A%B8%EB%B6%81%20OR%20PC%20OR%20%EA%B2%8C%EC%9D%B4%EB%B0%8D%20OR%20%ED%82%A4%EB%B3%B4%EB%93%9C%20OR%20%EB%A7%88%EC%9A%B0%EC%8A%A4%20OR%20%ED%97%A4%EB%93%9C%EC%85%8B%20OR%20%EC%9D%B4%EC%96%B4%ED%8F%B0%20OR%20%EC%8A%A4%EB%A7%88%ED%8A%B8%EC%9B%8C%EC%B9%98)%20(%EA%B5%AD%EB%82%B4%20%EC%B6%9C%EC%8B%9C%20OR%20%ED%8C%90%EB%A7%A4%20%EC%8B%9C%EC%9E%91%20OR%20%EC%98%88%EC%95%BD%20%ED%8C%90%EB%A7%A4%20OR%20%EC%82%AC%EC%A0%84%EC%98%88%EC%95%BD)&hl=ko&gl=KR&ceid=KR:ko",
+    },
+    {
+        "id": "newstap_product_launch",
+        "name": "NewsTap Product News",
+        "tier": "news_secondary",
+        "rss_url": "https://www.newstap.co.kr/rss/S1N2.xml",
     },
 ]

@@ -533,7 +533,7 @@ def get_news_pipeline_config() -> dict:
         "max_candidates_per_source": 6,
         "max_selected_articles": 5,
         "use_llm_scoring": True,
-        "sources": ["theverge", "zdnet_korea", "bloter", "geeknews"],
+        "sources": ["theverge", "zdnet_korea", "bloter", "geeknews", "newstap"],
         "priority_keywords": [
             "samsung",
             "galaxy",
@@ -554,7 +554,7 @@ def get_news_pipeline_config() -> dict:
             "keyword": 0.10,
         },
     }
-    supported_sources = {"theverge", "zdnet_korea", "bloter", "geeknews"}
+    supported_sources = {"theverge", "zdnet_korea", "bloter", "geeknews", "newstap"}
 
     config_json = load_config()
 

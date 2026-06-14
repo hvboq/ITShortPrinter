@@ -79,13 +79,13 @@ class PostBridgeConfigTests(unittest.TestCase):
         self.assertEqual(post_bridge_config["account_ids"], [])
         self.assertFalse(post_bridge_config["enabled"])
 
-    def test_news_pipeline_accepts_geeknews_source(self) -> None:
+    def test_news_pipeline_accepts_newstap_source(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             self.write_config(
                 temp_dir,
                 {
                     "news_pipeline": {
-                        "sources": ["geeknews", "unknown_source"],
+                        "sources": ["geeknews", "newstap", "unknown_source"],
                     }
                 },
             )
@@ -93,7 +93,8 @@ class PostBridgeConfigTests(unittest.TestCase):
             with patch.object(config, "ROOT_DIR", temp_dir):
                 news_config = config.get_news_pipeline_config()
 
-        self.assertEqual(news_config["sources"], ["geeknews"])
+        self.assertEqual(news_config["sources"], ["geeknews", "newstap"])
+
     def test_youtube_channel_config_uses_config_values(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             self.write_config(

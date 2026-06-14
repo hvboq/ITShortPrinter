@@ -38,7 +38,7 @@ All your configurations live in a root-level `config.json`, which starts as a co
 - `news_pipeline.max_candidates_per_source`: `number` - Maximum parsed candidates kept per source.
 - `news_pipeline.max_selected_articles`: `number` - Final number of ranked articles kept after dedupe.
 - `news_pipeline.use_llm_scoring`: `boolean` - Enables LLM-assisted scoring in addition to heuristic scoring.
-- `news_pipeline.sources`: `string[]` - Supported sources: `theverge`, `zdnet_korea`, `bloter`.
+- `news_pipeline.sources`: `string[]` - Supported sources: `theverge`, `zdnet_korea`, `bloter`, `geeknews`, `newstap`.
 - `news_pipeline.priority_keywords`: `string[]` - Keywords that boost ranking for product launches and core technologies.
 - `news_pipeline.scoring_weights`: `object` - Weights for `public_interest`, `realism`, `llm`, and `keyword`.
 - `post_bridge`: `object` - Settings for cross-posting after uploads.
@@ -91,7 +91,7 @@ All your configurations live in a root-level `config.json`, which starts as a co
     "max_candidates_per_source": 6,
     "max_selected_articles": 5,
     "use_llm_scoring": true,
-    "sources": ["theverge", "zdnet_korea", "bloter", "geeknews"],
+    "sources": ["theverge", "zdnet_korea", "bloter", "geeknews", "newstap"],
     "priority_keywords": [
       "samsung",
       "galaxy",

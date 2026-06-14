@@ -48,7 +48,7 @@ class NewsPipelineTests(unittest.TestCase):
             "max_candidates_per_source": 3,
             "max_selected_articles": 3,
             "use_llm_scoring": True,
-            "sources": ["theverge", "zdnet_korea", "bloter", "geeknews"],
+            "sources": ["theverge", "zdnet_korea", "bloter", "geeknews", "newstap"],
             "priority_keywords": ["samsung", "udc", "battery", "launch", "출시"],
             "scoring_weights": {
                 "public_interest": 0.35,
@@ -137,6 +137,7 @@ class NewsPipelineTests(unittest.TestCase):
             ("bloter", "https://www.bloter.net/newsroom", {"www.bloter.net", "bloter.net"}),
             ("bloter", "https://www.bloter.net/section/it", {"www.bloter.net", "bloter.net"}),
             ("geeknews", "https://news.hada.io/rss/news", {"news.hada.io"}),
+            ("newstap", "https://www.newstap.co.kr/rssIndex.html", {"www.newstap.co.kr"}),
         ]
 
         for source, url, domains in blocked_cases:
@@ -168,6 +169,56 @@ class NewsPipelineTests(unittest.TestCase):
                 {"news.hada.io"},
             )
         )
+
+    def test_newstap_rss_and_article_urls_are_accepted(self) -> None:
+        pipeline = self.build_pipeline()
+        rss = """<?xml version="1.0" encoding="UTF-8"?>
+        <rss><channel>
+          <item>
+            <title>디앤디컴, Wi-Fi 7 메인보드 국내 출시</title>
+            <link>https://www.newstap.co.kr/news/articleView.html?idxno=328538</link>
+          </item>
+        </channel></rss>
+        """
+        pipeline.session.get.return_value = MockResponse(rss)
+
+        urls = pipeline._fetch_rss_urls(
+            "https://cdn.newstap.co.kr/rss/gn_rss_allArticle.xml",
+            "newstap",
+            {"www.newstap.co.kr", "newstap.co.kr"},
+        )
+
+        self.assertEqual(
+            urls,
+            ["https://www.newstap.co.kr/news/articleView.html?idxno=328538"],
+        )
+        self.assertTrue(
+            pipeline._is_valid_candidate_url(
+                "newstap",
+                "https://www.newstap.co.kr/news/articleView.html?idxno=328538",
+                {"www.newstap.co.kr", "newstap.co.kr"},
+            )
+        )
+
+    def test_newstap_article_content_uses_article_body_selector(self) -> None:
+        pipeline = self.build_pipeline()
+        content = pipeline._extract_content(
+            """
+            <html>
+              <body>
+                <article id="article-view-content-div" class="article-veiw-body view-page">
+                  <p>디앤디컴이 AMD AM5 플랫폼 기반 신제품 메인보드 2종을 국내 출시한다고 밝혔다.</p>
+                  <p>신제품은 Wi-Fi 7과 PCIe 5.0 그래픽 슬롯을 제공해 최신 CPU와 고성능 그래픽카드 구성을 지원한다.</p>
+                  <p>사용자는 차세대 NVMe SSD와 고속 네트워크 기능을 활용할 수 있으며 게이밍 PC 구성에 적합하다.</p>
+                </article>
+              </body>
+            </html>
+            """,
+            "newstap",
+        )
+
+        self.assertIn("신제품 메인보드", content)
+        self.assertIn("Wi-Fi 7", content)
 
     def test_article_dedupe_uses_normalized_title(self) -> None:
         pipeline = self.build_pipeline()
