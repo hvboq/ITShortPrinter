@@ -13,6 +13,32 @@ from youtube_api.uploader import clean_description, clean_title, upload_video
 
 ROOT = project_root()
 UPLOAD_HISTORY = ROOT / "data" / "upload_history.json"
+SOURCE_LINK_LABEL = "원본 기사"
+MAX_YOUTUBE_DESCRIPTION_LENGTH = 4500
+
+
+def build_upload_description(base_description: str, article_url: str | None) -> str:
+    """Return a YouTube-safe description with the source article URL preserved.
+
+    YouTube descriptions are capped by ``clean_description``. Keep the source
+    link at the end so it is not accidentally truncated when generated copy is
+    long.
+    """
+    base = clean_description(base_description)
+    url = (article_url or "").strip()
+    if not url:
+        return base
+
+    source_line = f"{SOURCE_LINK_LABEL}: {url}"
+    if source_line in base:
+        return clean_description(base)
+
+    separator = "\n\n" if base else ""
+    reserved = len(separator) + len(source_line)
+    max_base_length = max(0, MAX_YOUTUBE_DESCRIPTION_LENGTH - reserved)
+    base = base[:max_base_length].rstrip()
+    separator = "\n\n" if base else ""
+    return clean_description(f"{base}{separator}{source_line}")
 
 
 def append_upload_history(entry: dict) -> None:
@@ -92,7 +118,10 @@ def upload_manifest_with_api(
         if not title:
             raise ValueError(f"Rank {rank} has no safe human-readable title")
         video_path = str(Path(item["video_path"]).resolve())
-        desc = clean_description(item.get("metadata", {}).get("description") or "")
+        desc = build_upload_description(
+            item.get("metadata", {}).get("description") or "",
+            item.get("article_url"),
+        )
         print(f"UPLOAD_{rank}_START|provider=youtube_api|path={video_path}|title={title}", flush=True)
 
         uploaded = upload_video(
