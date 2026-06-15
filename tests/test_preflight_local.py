@@ -20,6 +20,7 @@ class PreflightLocalTests(unittest.TestCase):
         self.assertIn('if text_provider == "hermes"', source)
         self.assertIn('Hermes text provider selected', source)
         self.assertIn('["hermes", "chat", "-q"', source)
+        self.assertIn('"--provider", hermes_provider', source)
 
 
 if __name__ == "__main__":

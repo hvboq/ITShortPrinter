@@ -210,6 +210,14 @@ def get_hermes_model() -> str:
     return str(load_config().get("hermes_model", "gpt-5.5")).strip() or "gpt-5.5"
 
 
+def get_hermes_provider() -> str:
+    """Gets the Hermes CLI provider used for text generation, when configured."""
+    env_provider = get_env_var("HERMES_TEXT_PROVIDER", "").strip()
+    if env_provider:
+        return env_provider
+    return str(load_config().get("hermes_provider", "")).strip()
+
+
 def get_default_text_model() -> str:
     """Return the provider-aware default text model identifier."""
     provider = get_text_provider()

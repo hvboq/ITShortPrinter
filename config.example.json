@@ -86,5 +86,6 @@
     "id": ""
   },
   "text_provider": "hermes",
+  "hermes_provider": "openai-codex",
   "hermes_model": "gpt-5.5"
 }

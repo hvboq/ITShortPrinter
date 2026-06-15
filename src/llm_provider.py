@@ -13,6 +13,7 @@ except ModuleNotFoundError:
 from config import get_nanobanana2_api_base_url
 from config import get_nanobanana2_api_key
 from config import get_hermes_model
+from config import get_hermes_provider
 from config import get_ollama_base_url
 from config import get_text_provider
 
@@ -86,6 +87,9 @@ def _run_hermes_chat(prompt: str, model_name: str | None = None) -> str:
     model = _normalize_hermes_model(model_name)
     if model:
         command.extend(["--model", model])
+    provider = get_hermes_provider()
+    if provider:
+        command.extend(["--provider", provider])
 
     completed = subprocess.run(
         command,

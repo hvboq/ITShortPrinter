@@ -53,6 +53,7 @@ def main() -> int:
     text_provider = str(cfg.get("text_provider", "ollama")).lower()
     configured_text_model = str(cfg.get("ollama_model", "")).strip()
     hermes_model = str(cfg.get("hermes_model", "gpt-5.5")).strip() or "gpt-5.5"
+    hermes_provider = str(cfg.get("hermes_provider", "")).strip() or os.environ.get("HERMES_TEXT_PROVIDER", "").strip()
     using_gemini_text = configured_text_model.lower().startswith("gemini")
 
     ok(f"stt_provider={stt_provider}")
@@ -78,8 +79,12 @@ def main() -> int:
     # Text generation provider
     if text_provider == "hermes":
         try:
+            command = ["hermes", "chat", "-q", "Reply with OK only.", "--quiet", "--model", hermes_model]
+            if hermes_provider:
+                command.extend(["--provider", hermes_provider])
+
             completed = subprocess.run(
-                ["hermes", "chat", "-q", "Reply with OK only.", "--quiet", "--model", hermes_model],
+                command,
                 input=None,
                 capture_output=True,
                 encoding="utf-8",
