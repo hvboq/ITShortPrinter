@@ -200,6 +200,76 @@ class NewsPipelineTests(unittest.TestCase):
             )
         )
 
+    def test_expanded_source_url_filters_accept_representative_articles(self) -> None:
+        pipeline = self.build_pipeline()
+        accepted_cases = [
+            ("etnews", "https://www.etnews.com/20260618000123", {"www.etnews.com", "etnews.com"}),
+            ("engadget", "https://www.engadget.com/mobile/sample-phone-launch-120000000.html", {"www.engadget.com", "engadget.com"}),
+            ("ars_technica", "https://arstechnica.com/gadgets/2026/06/new-chip-launch/", {"arstechnica.com"}),
+            ("wired", "https://www.wired.com/story/apple-new-device-launch/", {"www.wired.com", "wired.com"}),
+            ("mit_technology_review", "https://www.technologyreview.com/2026/06/18/123456/new-ai-chip/", {"www.technologyreview.com", "technologyreview.com"}),
+            ("apple_newsroom", "https://www.apple.com/newsroom/2026/06/apple-introduces-new-device/", {"www.apple.com", "apple.com"}),
+            ("google_keyword", "https://blog.google/products/android/new-android-feature/", {"blog.google"}),
+            ("microsoft_source", "https://news.microsoft.com/source/features/ai/new-windows-feature/", {"news.microsoft.com"}),
+            ("samsung_newsroom", "https://news.samsung.com/global/samsung-electronics-announces-new-device", {"news.samsung.com"}),
+            ("samsung_mobile_press", "https://www.samsungmobilepress.com/articles/galaxy-xr-launch", {"www.samsungmobilepress.com", "samsungmobilepress.com"}),
+            ("openai_news", "https://openai.com/index/new-model-release/", {"openai.com"}),
+            ("anthropic_news", "https://www.anthropic.com/news/new-claude-release", {"www.anthropic.com", "anthropic.com"}),
+            ("google_deepmind_blog", "https://deepmind.google/blog/new-research-update/", {"deepmind.google"}),
+            ("google_news_technology", "https://news.google.com/rss/articles/CBMi-example", {"news.google.com"}),
+            ("ifixit_news", "https://www.ifixit.com/News/12345/new-device-teardown", {"www.ifixit.com", "ifixit.com"}),
+            ("toms_hardware", "https://www.tomshardware.com/pc-components/gpus/new-gpu-launch", {"www.tomshardware.com", "tomshardware.com"}),
+            ("meeco_news", "https://meeco.kr/news/12345678", {"meeco.kr"}),
+            ("quasarzone_hardware_news", "https://quasarzone.com/bbs/qn_hardware/views/123456", {"quasarzone.com"}),
+            ("quasarzone_mobile_news", "https://quasarzone.com/bbs/qn_mobile/views/123456", {"quasarzone.com"}),
+        ]
+
+        for source, url, domains in accepted_cases:
+            self.assertTrue(pipeline._is_valid_candidate_url(source, url, domains), source)
+
+        self.assertFalse(
+            pipeline._is_valid_candidate_url(
+                "wired",
+                "https://www.wired.com/story/best-coupon-codes/",
+                {"www.wired.com", "wired.com"},
+            )
+        )
+        self.assertFalse(
+            pipeline._is_valid_candidate_url(
+                "anthropic_news",
+                "https://www.anthropic.com/news",
+                {"www.anthropic.com", "anthropic.com"},
+            )
+        )
+
+    def test_relative_feed_links_are_normalized_for_mobile_press(self) -> None:
+        pipeline = self.build_pipeline()
+        rss = """<?xml version="1.0" encoding="UTF-8"?>
+        <rss><channel>
+          <item>
+            <title>Galaxy XR launches</title>
+            <link>/articles/galaxy-xr-uk-launch</link>
+          </item>
+        </channel></rss>
+        """
+        pipeline.session.get.return_value = MockResponse(rss)
+
+        urls = pipeline._fetch_rss_urls(
+            "https://www.samsungmobilepress.com/feed",
+            "samsung_mobile_press",
+            {"www.samsungmobilepress.com", "samsungmobilepress.com"},
+        )
+
+        self.assertEqual(urls, ["https://www.samsungmobilepress.com/articles/galaxy-xr-uk-launch"])
+
+    def test_wired_reads_multiple_category_feeds(self) -> None:
+        pipeline = self.build_pipeline()
+        config = pipeline.SOURCE_CONFIG["wired"]
+
+        self.assertEqual(config["rss"], "")
+        self.assertGreaterEqual(len(config["rss_urls"]), 2)
+        self.assertIn("https://www.wired.com/feed/category/gear/latest/rss", config["rss_urls"])
+
     def test_newstap_article_content_uses_article_body_selector(self) -> None:
         pipeline = self.build_pipeline()
         content = pipeline._extract_content(

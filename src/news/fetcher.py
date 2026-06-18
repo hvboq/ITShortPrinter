@@ -1,11 +1,21 @@
 from __future__ import annotations
 
 import html
+import re
 import time
 import urllib.request
+from urllib.parse import urljoin
 import xml.etree.ElementTree as ET
 from datetime import datetime, timezone
 from email.utils import parsedate_to_datetime
+
+
+def _escape_unsupported_xml_entities(xml_text: str) -> str:
+    return re.sub(
+        r"&(?!amp;|lt;|gt;|apos;|quot;|#[0-9]+;|#x[0-9a-fA-F]+;)",
+        "&amp;",
+        xml_text,
+    )
 
 
 def _text(element: ET.Element | None, default: str = "") -> str:
@@ -30,8 +40,8 @@ def _parse_date(raw: str) -> str | None:
         return raw
 
 
-def parse_rss(xml_text: str, source_id: str, source_name: str, source_tier: str) -> list[dict]:
-    root = ET.fromstring(xml_text)
+def parse_rss(xml_text: str, source_id: str, source_name: str, source_tier: str, base_url: str = "") -> list[dict]:
+    root = ET.fromstring(_escape_unsupported_xml_entities(xml_text))
     items = root.findall(".//item")
     if not items:
         items = root.findall(".//{http://www.w3.org/2005/Atom}entry")
@@ -44,6 +54,8 @@ def parse_rss(xml_text: str, source_id: str, source_name: str, source_tier: str)
         if not link:
             atom_link = item.find("{http://www.w3.org/2005/Atom}link")
             link = atom_link.attrib.get("href", "") if atom_link is not None else ""
+        if link:
+            link = urljoin(base_url, link.strip())
         excerpt = _child_text(item, "description") or _child_text(item, "summary") or _child_text(item, "content")
         published = _child_text(item, "pubDate") or _child_text(item, "published") or _child_text(item, "updated")
 
@@ -73,4 +85,4 @@ def fetch_rss(url: str, source_id: str, source_name: str, source_tier: str, time
     with urllib.request.urlopen(request, timeout=timeout) as response:
         xml_text = response.read().decode("utf-8", errors="replace")
     time.sleep(1)
-    return parse_rss(xml_text, source_id=source_id, source_name=source_name, source_tier=source_tier)
+    return parse_rss(xml_text, source_id=source_id, source_name=source_name, source_tier=source_tier, base_url=url)

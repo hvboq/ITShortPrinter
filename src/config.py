@@ -538,10 +538,35 @@ def get_news_pipeline_config() -> dict:
     defaults = {
         "enabled": True,
         "max_article_age_hours": 48,
-        "max_candidates_per_source": 6,
-        "max_selected_articles": 5,
+        "max_candidates_per_source": 4,
+        "max_selected_articles": 8,
         "use_llm_scoring": True,
-        "sources": ["theverge", "zdnet_korea", "bloter", "geeknews", "newstap"],
+        "sources": [
+            "theverge",
+            "zdnet_korea",
+            "bloter",
+            "etnews",
+            "engadget",
+            "ars_technica",
+            "wired",
+            "mit_technology_review",
+            "apple_newsroom",
+            "google_keyword",
+            "microsoft_source",
+            "samsung_newsroom",
+            "samsung_mobile_press",
+            "openai_news",
+            "anthropic_news",
+            "google_deepmind_blog",
+            "google_news_technology",
+            "ifixit_news",
+            "toms_hardware",
+            "meeco_news",
+            "quasarzone_hardware_news",
+            "quasarzone_mobile_news",
+            "geeknews",
+            "newstap",
+        ],
         "priority_keywords": [
             "samsung",
             "galaxy",
@@ -562,7 +587,7 @@ def get_news_pipeline_config() -> dict:
             "keyword": 0.10,
         },
     }
-    supported_sources = {"theverge", "zdnet_korea", "bloter", "geeknews", "newstap"}
+    supported_sources = set(defaults["sources"])
 
     config_json = load_config()
 

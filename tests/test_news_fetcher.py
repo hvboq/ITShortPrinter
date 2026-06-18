@@ -55,5 +55,49 @@ class RssFetcherTests(unittest.TestCase):
         self.assertIn("오픈소스 모델", articles[0]["raw_excerpt"])
 
 
+    def test_parse_rss_escapes_non_xml_named_entities(self):
+        from news.fetcher import parse_rss
+
+        xml = """<?xml version="1.0"?>
+        <rss><channel><title>Example</title>
+          <item>
+            <title>Meeco R&amp;D & GPU news</title>
+            <link>https://meeco.kr/news/123</link>
+            <description>GPU & AI 소식입니다.</description>
+          </item>
+        </channel></rss>
+        """
+
+        articles = parse_rss(xml, source_id="meeco_news", source_name="Meeco", source_tier="community_secondary")
+
+        self.assertEqual(len(articles), 1)
+        self.assertIn("R&D", articles[0]["title"])
+        self.assertIn("GPU & AI", articles[0]["raw_excerpt"])
+
+
+    def test_parse_relative_feed_links_against_base_url(self):
+        from news.fetcher import parse_rss
+
+        xml = """<?xml version="1.0"?>
+        <rss><channel><title>Example</title>
+          <item>
+            <title>Samsung Mobile Press article</title>
+            <link>/articles/galaxy-xr-launch</link>
+            <description>Samsung announced a new Galaxy product.</description>
+          </item>
+        </channel></rss>
+        """
+
+        articles = parse_rss(
+            xml,
+            source_id="samsung_mobile_press",
+            source_name="Samsung Mobile Press",
+            source_tier="official_primary",
+            base_url="https://www.samsungmobilepress.com/feed",
+        )
+
+        self.assertEqual(articles[0]["url"], "https://www.samsungmobilepress.com/articles/galaxy-xr-launch")
+
+
 if __name__ == "__main__":
     unittest.main()

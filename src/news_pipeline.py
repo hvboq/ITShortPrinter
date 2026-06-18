@@ -58,18 +58,137 @@ class NewsPipeline:
         },
         "zdnet_korea": {
             "homepage": "https://zdnet.co.kr/",
-            "rss": "",
+            "rss": "https://feeds.feedburner.com/zdkorea",
             "seed_urls": [],
             "allowed_domains": {"zdnet.co.kr", "www.zdnet.co.kr"},
         },
         "bloter": {
             "homepage": "https://www.bloter.net/",
-            "rss": "",
+            "rss": "https://cdn.bloter.net/rss/gns_allArticle.xml",
             "seed_urls": [
                 "https://www.bloter.net/news/articleList.html?sc_section_code=S1N4&view_type=sm",
                 "https://www.bloter.net/news/articleList.html?sc_section_code=S1N20&view_type=sm",
             ],
             "allowed_domains": {"www.bloter.net", "bloter.net"},
+        },
+        "etnews": {
+            "homepage": "https://www.etnews.com/",
+            "rss": "https://rss.etnews.com/Section901.xml",
+            "seed_urls": [],
+            "allowed_domains": {"www.etnews.com", "etnews.com"},
+        },
+        "engadget": {
+            "homepage": "https://www.engadget.com/",
+            "rss": "https://www.engadget.com/rss.xml",
+            "seed_urls": [],
+            "allowed_domains": {"www.engadget.com", "engadget.com"},
+        },
+        "ars_technica": {
+            "homepage": "https://arstechnica.com/",
+            "rss": "https://feeds.arstechnica.com/arstechnica/index",
+            "seed_urls": [],
+            "allowed_domains": {"arstechnica.com"},
+        },
+        "wired": {
+            "homepage": "https://www.wired.com/",
+            "rss": "",
+            "rss_urls": [
+                "https://www.wired.com/feed/category/gear/latest/rss",
+                "https://www.wired.com/feed/category/business/latest/rss",
+                "https://www.wired.com/feed/category/security/latest/rss",
+            ],
+            "seed_urls": [],
+            "allowed_domains": {"www.wired.com", "wired.com"},
+        },
+        "mit_technology_review": {
+            "homepage": "https://www.technologyreview.com/",
+            "rss": "https://www.technologyreview.com/feed/",
+            "seed_urls": [],
+            "allowed_domains": {"www.technologyreview.com", "technologyreview.com"},
+        },
+        "apple_newsroom": {
+            "homepage": "https://www.apple.com/newsroom/",
+            "rss": "https://www.apple.com/newsroom/rss-feed.rss",
+            "seed_urls": [],
+            "allowed_domains": {"www.apple.com", "apple.com"},
+        },
+        "google_keyword": {
+            "homepage": "https://blog.google/",
+            "rss": "https://blog.google/rss/",
+            "seed_urls": [],
+            "allowed_domains": {"blog.google"},
+        },
+        "microsoft_source": {
+            "homepage": "https://news.microsoft.com/source/",
+            "rss": "https://news.microsoft.com/source/feed/",
+            "seed_urls": [],
+            "allowed_domains": {"news.microsoft.com", "blogs.microsoft.com", "techcommunity.microsoft.com", "www.microsoft.com", "microsoft.com"},
+        },
+        "samsung_newsroom": {
+            "homepage": "https://news.samsung.com/global/",
+            "rss": "https://news.samsung.com/global/feed",
+            "seed_urls": [],
+            "allowed_domains": {"news.samsung.com"},
+        },
+        "samsung_mobile_press": {
+            "homepage": "https://www.samsungmobilepress.com/",
+            "rss": "https://www.samsungmobilepress.com/feed",
+            "seed_urls": ["https://www.samsungmobilepress.com/latest-news"],
+            "allowed_domains": {"www.samsungmobilepress.com", "samsungmobilepress.com"},
+        },
+        "openai_news": {
+            "homepage": "https://openai.com/news/",
+            "rss": "https://openai.com/news/rss.xml",
+            "seed_urls": [],
+            "allowed_domains": {"openai.com"},
+        },
+        "anthropic_news": {
+            "homepage": "https://www.anthropic.com/news",
+            "rss": "",
+            "seed_urls": ["https://www.anthropic.com/news"],
+            "allowed_domains": {"www.anthropic.com", "anthropic.com"},
+        },
+        "google_deepmind_blog": {
+            "homepage": "https://deepmind.google/blog/",
+            "rss": "https://deepmind.google/blog/rss.xml",
+            "seed_urls": [],
+            "allowed_domains": {"deepmind.google"},
+        },
+        "google_news_technology": {
+            "homepage": "https://news.google.com/",
+            "rss": "https://news.google.com/rss/headlines/section/topic/TECHNOLOGY?hl=en-US&gl=US&ceid=US:en",
+            "seed_urls": [],
+            "allowed_domains": {"news.google.com"},
+        },
+        "ifixit_news": {
+            "homepage": "https://www.ifixit.com/News",
+            "rss": "https://www.ifixit.com/News/rss",
+            "seed_urls": ["https://www.ifixit.com/News/category/teardowns"],
+            "allowed_domains": {"www.ifixit.com", "ifixit.com"},
+        },
+        "toms_hardware": {
+            "homepage": "https://www.tomshardware.com/",
+            "rss": "https://www.tomshardware.com/feeds.xml",
+            "seed_urls": [],
+            "allowed_domains": {"www.tomshardware.com", "tomshardware.com"},
+        },
+        "meeco_news": {
+            "homepage": "https://meeco.kr/news",
+            "rss": "https://meeco.kr/news/rss",
+            "seed_urls": [],
+            "allowed_domains": {"meeco.kr"},
+        },
+        "quasarzone_hardware_news": {
+            "homepage": "https://quasarzone.com/bbs/qn_hardware",
+            "rss": "",
+            "seed_urls": ["https://quasarzone.com/bbs/qn_hardware"],
+            "allowed_domains": {"quasarzone.com"},
+        },
+        "quasarzone_mobile_news": {
+            "homepage": "https://quasarzone.com/bbs/qn_mobile",
+            "rss": "",
+            "seed_urls": ["https://quasarzone.com/bbs/qn_mobile"],
+            "allowed_domains": {"quasarzone.com"},
         },
         "geeknews": {
             "homepage": "https://news.hada.io/",
@@ -89,7 +208,6 @@ class NewsPipeline:
         "/rss",
         "/feed",
         "/feeds",
-        "/index",
         "/tag/",
         "/tags/",
         "/topic/",
@@ -112,7 +230,6 @@ class NewsPipeline:
         "/search",
         "/about",
         "/contact",
-        "/newsroom",
     )
 
     def __init__(
@@ -145,14 +262,34 @@ class NewsPipeline:
         save_latest_news_candidates([asdict(article) for article in selected_articles])
         return selected_articles
 
+    def _get(self, url: str, timeout: int = 20) -> requests.Response:
+        try:
+            return self.session.get(url, timeout=timeout)
+        except requests.exceptions.SSLError:
+            warning(f"SSL verification failed for {url}; retrying without certificate verification.")
+            requests.packages.urllib3.disable_warnings()  # type: ignore[attr-defined]
+            return self.session.get(url, timeout=timeout, verify=False)
+
+    @staticmethod
+    def _escape_unsupported_xml_entities(xml_text: str) -> str:
+        return re.sub(
+            r"&(?!amp;|lt;|gt;|apos;|quot;|#[0-9]+;|#x[0-9a-fA-F]+;)",
+            "&amp;",
+            xml_text,
+        )
+
     def _collect_source_articles(self, source: str) -> list[NewsArticle]:
         config = self.SOURCE_CONFIG[source]
         candidate_urls = []
 
-        if config["rss"]:
+        rss_urls = []
+        if config.get("rss"):
+            rss_urls.append(config["rss"])
+        rss_urls.extend(config.get("rss_urls", []))
+        for rss_url in rss_urls:
             candidate_urls.extend(
                 self._fetch_rss_urls(
-                    config["rss"],
+                    rss_url,
                     source,
                     config["allowed_domains"],
                 )
@@ -178,7 +315,11 @@ class NewsPipeline:
 
         articles = []
         for url in unique_urls[: self.config["max_candidates_per_source"] * 3]:
-            article = self._fetch_article(source, url)
+            try:
+                article = self._fetch_article(source, url)
+            except Exception as exc:
+                warning(f"Failed to fetch article from {source}: {url} ({exc})")
+                continue
             if article is None:
                 continue
             if not self._is_recent(article.published_at):
@@ -196,10 +337,10 @@ class NewsPipeline:
         source: str,
         allowed_domains: set[str],
     ) -> list[str]:
-        response = self.session.get(rss_url, timeout=20)
+        response = self._get(rss_url, timeout=20)
         response.raise_for_status()
 
-        root = ElementTree.fromstring(response.text)
+        root = ElementTree.fromstring(self._escape_unsupported_xml_entities(response.text))
         urls = []
         items = root.findall(".//item")
         if not items:
@@ -209,6 +350,8 @@ class NewsPipeline:
             if not link:
                 atom_link = item.find("{http://www.w3.org/2005/Atom}link")
                 link = atom_link.attrib.get("href", "") if atom_link is not None else ""
+            if link:
+                link = urljoin(rss_url, link.strip())
             if link and self._is_valid_candidate_url(source, link, allowed_domains):
                 urls.append(link)
         return urls
@@ -219,7 +362,7 @@ class NewsPipeline:
         homepage_url: str,
         allowed_domains: set[str],
     ) -> list[str]:
-        response = self.session.get(homepage_url, timeout=20)
+        response = self._get(homepage_url, timeout=20)
         response.raise_for_status()
 
         urls = []
@@ -240,13 +383,17 @@ class NewsPipeline:
         parsed = urlparse(candidate_url)
         if parsed.scheme not in {"http", "https"}:
             return False
-        if parsed.netloc not in allowed_domains:
+        netloc = parsed.netloc.lower()
+        if netloc not in allowed_domains:
             return False
 
         path = parsed.path.lower()
 
         if path.endswith(".xml"):
             return False
+
+        if source == "google_news_technology":
+            return path.startswith("/rss/articles/") or path.startswith("/articles/")
 
         if any(token in path for token in self.GENERAL_NON_ARTICLE_PATH_TOKENS):
             return False
@@ -260,6 +407,63 @@ class NewsPipeline:
         if source == "bloter":
             return path.endswith("/articleview.html") and "idxno=" in parsed.query
 
+        if source == "etnews":
+            return re.fullmatch(r"/[0-9]{12,}/?", path) is not None
+
+        if source == "engadget":
+            if path in {"/", "/rss.xml"}:
+                return False
+            return path.count("/") >= 1 and not path.endswith(".xml")
+
+        if source == "ars_technica":
+            return re.match(r"^/[a-z0-9-]+/[0-9]{4}/[0-9]{2}/[a-z0-9-]+/?$", path) is not None
+
+        if source == "wired":
+            blocked_slug_terms = ("coupon", "promo-code", "deals")
+            return path.startswith("/story/") and not any(term in path for term in blocked_slug_terms)
+
+        if source == "mit_technology_review":
+            return re.match(r"^/[0-9]{4}/[0-9]{2}/[0-9]{2}/[0-9]+/[a-z0-9-]+/?$", path) is not None
+
+        if source == "apple_newsroom":
+            return re.match(r"^/newsroom/[0-9]{4}/[0-9]{2}/[a-z0-9-]+/?$", path) is not None
+
+        if source == "google_keyword":
+            return path not in {"/", "/rss/"} and path.count("/") >= 2
+
+        if source == "microsoft_source":
+            return netloc != "news.microsoft.com" or path.startswith("/source/") and path.rstrip("/") != "/source"
+
+        if source == "samsung_newsroom":
+            return path.startswith("/global/") and path.rstrip("/") not in {"/global", "/global/feed"}
+
+        if source == "samsung_mobile_press":
+            return path.startswith("/articles/")
+
+        if source == "openai_news":
+            return path.startswith(("/news/", "/index/")) and not path.endswith("rss.xml")
+
+        if source == "anthropic_news":
+            return path.startswith("/news/") and path.rstrip("/") != "/news"
+
+        if source == "google_deepmind_blog":
+            return path.startswith("/blog/") and path.rstrip("/") not in {"/blog", "/blog/rss.xml"}
+
+        if source == "ifixit_news":
+            return re.match(r"^/news/[0-9]+/[a-z0-9-]+/?$", path) is not None
+
+        if source == "toms_hardware":
+            return path.count("/") >= 2 and not path.endswith(('.xml', '.rss'))
+
+        if source == "meeco_news":
+            return re.fullmatch(r"/news/[0-9]+/?", path) is not None
+
+        if source == "quasarzone_hardware_news":
+            return re.fullmatch(r"/bbs/qn_hardware/views/[0-9]+/?", path) is not None
+
+        if source == "quasarzone_mobile_news":
+            return re.fullmatch(r"/bbs/qn_mobile/views/[0-9]+/?", path) is not None
+
         if source == "geeknews":
             return path == "/topic" and "id=" in parsed.query
 
@@ -269,7 +473,7 @@ class NewsPipeline:
         return False
 
     def _fetch_article(self, source: str, url: str) -> Optional[NewsArticle]:
-        response = self.session.get(url, timeout=20)
+        response = self._get(url, timeout=20)
         response.raise_for_status()
         document = response.text
 

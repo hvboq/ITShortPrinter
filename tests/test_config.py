@@ -79,13 +79,36 @@ class PostBridgeConfigTests(unittest.TestCase):
         self.assertEqual(post_bridge_config["account_ids"], [])
         self.assertFalse(post_bridge_config["enabled"])
 
-    def test_news_pipeline_accepts_newstap_source(self) -> None:
+    def test_news_pipeline_accepts_expanded_source_set(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             self.write_config(
                 temp_dir,
                 {
                     "news_pipeline": {
-                        "sources": ["geeknews", "newstap", "unknown_source"],
+                        "sources": [
+                            "geeknews",
+                            "newstap",
+                            "etnews",
+                            "engadget",
+                            "ars_technica",
+                            "wired",
+                            "mit_technology_review",
+                            "apple_newsroom",
+                            "google_keyword",
+                            "microsoft_source",
+                            "samsung_newsroom",
+                            "samsung_mobile_press",
+                            "openai_news",
+                            "anthropic_news",
+                            "google_deepmind_blog",
+                            "google_news_technology",
+                            "ifixit_news",
+                            "toms_hardware",
+                            "meeco_news",
+                            "quasarzone_hardware_news",
+                            "quasarzone_mobile_news",
+                            "unknown_source",
+                        ],
                     }
                 },
             )
@@ -93,7 +116,32 @@ class PostBridgeConfigTests(unittest.TestCase):
             with patch.object(config, "ROOT_DIR", temp_dir):
                 news_config = config.get_news_pipeline_config()
 
-        self.assertEqual(news_config["sources"], ["geeknews", "newstap"])
+        self.assertEqual(
+            news_config["sources"],
+            [
+                "geeknews",
+                "newstap",
+                "etnews",
+                "engadget",
+                "ars_technica",
+                "wired",
+                "mit_technology_review",
+                "apple_newsroom",
+                "google_keyword",
+                "microsoft_source",
+                "samsung_newsroom",
+                "samsung_mobile_press",
+                "openai_news",
+                "anthropic_news",
+                "google_deepmind_blog",
+                "google_news_technology",
+                "ifixit_news",
+                "toms_hardware",
+                "meeco_news",
+                "quasarzone_hardware_news",
+                "quasarzone_mobile_news",
+            ],
+        )
 
     def test_youtube_channel_config_uses_config_values(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
