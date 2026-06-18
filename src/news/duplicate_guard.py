@@ -12,6 +12,7 @@ from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
 TITLE_SIMILARITY_THRESHOLD = 0.90
 TITLE_TOKEN_OVERLAP_THRESHOLD = 0.82
+PENDING_UPLOAD_STALE_SECONDS = 6 * 60 * 60
 _LOCK_STALE_SECONDS = 10 * 60
 _TRACKING_QUERY_PREFIXES = ("utm_",)
 _TRACKING_QUERY_KEYS = {"fbclid", "gclid", "igshid", "mc_cid", "mc_eid", "ref", "ref_src"}
@@ -90,12 +91,45 @@ def titles_similar(left: str, right: str) -> bool:
     return overlap >= TITLE_TOKEN_OVERLAP_THRESHOLD
 
 
+def is_stale_pending_upload(
+    item: dict[str, Any],
+    *,
+    now: float | None = None,
+    stale_seconds: int = PENDING_UPLOAD_STALE_SECONDS,
+) -> bool:
+    """Return whether a pending-upload reservation is too old to block reuse."""
+    if item.get("upload_status") != "pending_upload":
+        return False
+    try:
+        reserved_at = float(item.get("reserved_at_unix") or 0)
+    except (TypeError, ValueError):
+        reserved_at = 0
+    if reserved_at <= 0:
+        return True
+    return (time.time() if now is None else now) - reserved_at > stale_seconds
+
+
+def active_history_items(
+    items: Iterable[dict[str, Any]],
+    *,
+    now: float | None = None,
+    stale_seconds: int = PENDING_UPLOAD_STALE_SECONDS,
+) -> list[dict[str, Any]]:
+    """Drop stale pending-upload reservations from duplicate comparisons."""
+    active: list[dict[str, Any]] = []
+    for item in items:
+        if not isinstance(item, dict):
+            continue
+        if is_stale_pending_upload(item, now=now, stale_seconds=stale_seconds):
+            continue
+        active.append(item)
+    return active
+
+
 def duplicate_reason(candidate: dict[str, Any], existing_items: Iterable[dict[str, Any]]) -> str | None:
     candidate_urls = article_urls(candidate)
     candidate_title = article_title(candidate)
-    for item in existing_items:
-        if not isinstance(item, dict):
-            continue
+    for item in active_history_items(existing_items):
         existing_urls = article_urls(item)
         if candidate_urls and existing_urls and candidate_urls & existing_urls:
             return "url"

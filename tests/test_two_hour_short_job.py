@@ -285,6 +285,27 @@ class TwoHourShortJobTests(unittest.TestCase):
         self.assertEqual(selected["url"], "https://example.com/archive-gpu")
         self.assertEqual(selected["selection_source"], "archive_fallback")
 
+    def test_release_lock_does_not_remove_new_owner_lock(self) -> None:
+        job = load_job_module()
+        with tempfile.TemporaryDirectory() as tmpdir:
+            lock_file = Path(tmpdir) / "run.lock"
+            job_dir = Path(tmpdir)
+            with patch.object(job, "JOB_DIR", job_dir), patch.object(job, "LOCK_FILE", lock_file):
+                self.assertTrue(job.acquire_lock(lock_ttl_minutes=1))
+                first_owner = job._LOCK_OWNER_TOKEN
+                self.assertTrue(first_owner)
+
+                lock_file.write_text(
+                    json.dumps({"pid": 999999, "started_at": job._now(), "owner_token": "new-owner"}),
+                    encoding="utf-8",
+                )
+                job.release_lock()
+
+                self.assertTrue(lock_file.exists())
+                remaining = json.loads(lock_file.read_text(encoding="utf-8"))
+                self.assertEqual(remaining["owner_token"], "new-owner")
+                self.assertIsNone(job._LOCK_OWNER_TOKEN)
+
     def test_general_archive_fallback_skips_dedicated_product_launch_sources(self) -> None:
         job = load_job_module()
         with tempfile.TemporaryDirectory() as tmpdir:

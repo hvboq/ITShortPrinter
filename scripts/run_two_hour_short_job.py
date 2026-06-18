@@ -39,6 +39,7 @@ SCREEN_DIR = JOB_DIR / "screens"
 UPLOAD_HISTORY = ROOT / "data" / "upload_history.json"
 UPLOAD_HISTORY_LOCK = ROOT / "data" / "upload_history.lock"
 ARCHIVE_DB = ROOT / "data" / "news_archive.sqlite3"
+_LOCK_OWNER_TOKEN: str | None = None
 
 
 def _now() -> int:
@@ -319,7 +320,9 @@ def select_next_article(limit: int, topic: str = "") -> Any:
 
 
 def acquire_lock(lock_ttl_minutes: int) -> bool:
+    global _LOCK_OWNER_TOKEN
     JOB_DIR.mkdir(parents=True, exist_ok=True)
+    owner_token = f"{os.getpid()}:{time.time_ns()}"
     try:
         fd = os.open(str(LOCK_FILE), os.O_CREAT | os.O_EXCL | os.O_WRONLY)
     except FileExistsError:
@@ -339,15 +342,38 @@ def acquire_lock(lock_ttl_minutes: int) -> bool:
             pass
         return acquire_lock(lock_ttl_minutes)
     with os.fdopen(fd, "w", encoding="utf-8") as lock_file:
-        json.dump({"pid": os.getpid(), "started_at": _now()}, lock_file, ensure_ascii=False, indent=2)
+        json.dump(
+            {"pid": os.getpid(), "started_at": _now(), "owner_token": owner_token},
+            lock_file,
+            ensure_ascii=False,
+            indent=2,
+        )
+    _LOCK_OWNER_TOKEN = owner_token
     return True
 
 
 def release_lock() -> None:
+    global _LOCK_OWNER_TOKEN
+    if not _LOCK_OWNER_TOKEN:
+        return
+    try:
+        lock = json.loads(LOCK_FILE.read_text(encoding="utf-8"))
+    except FileNotFoundError:
+        _LOCK_OWNER_TOKEN = None
+        return
+    except Exception:
+        print(f"LOCK_RELEASE_SKIPPED|reason=unreadable_lock|path={LOCK_FILE}", flush=True)
+        return
+    if lock.get("owner_token") != _LOCK_OWNER_TOKEN:
+        print(f"LOCK_RELEASE_SKIPPED|reason=owner_changed|path={LOCK_FILE}", flush=True)
+        _LOCK_OWNER_TOKEN = None
+        return
     try:
         LOCK_FILE.unlink()
     except FileNotFoundError:
         pass
+    finally:
+        _LOCK_OWNER_TOKEN = None
 
 
 def write_single_item_manifest(article: Any, video_path: str, youtube: Any) -> Path:

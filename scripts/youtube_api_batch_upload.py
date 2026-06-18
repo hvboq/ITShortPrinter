@@ -8,7 +8,7 @@ from pathlib import Path
 import _bootstrap  # noqa: F401
 from config import get_youtube_channel_config
 from news.archive import mark_shorts_status
-from news.duplicate_guard import duplicate_reason, file_lock, load_history
+from news.duplicate_guard import active_history_items, duplicate_reason, file_lock, load_history
 from project_paths import project_root
 from youtube_api.uploader import clean_description, clean_title, upload_video
 
@@ -74,7 +74,7 @@ def reserve_upload_item(item: dict, title: str) -> str | None:
         "reservation_key": reservation_key,
     }
     with file_lock(UPLOAD_HISTORY_LOCK):
-        history = load_history(UPLOAD_HISTORY)
+        history = active_history_items(load_history(UPLOAD_HISTORY))
         reason = duplicate_reason(item, history)
         if reason:
             return reason

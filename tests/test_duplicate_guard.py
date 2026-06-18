@@ -1,4 +1,5 @@
 import sys
+import time
 import unittest
 from pathlib import Path
 
@@ -7,7 +8,13 @@ SRC_DIR = PROJECT_ROOT / "src"
 if str(SRC_DIR) not in sys.path:
     sys.path.insert(0, str(SRC_DIR))
 
-from news.duplicate_guard import canonicalize_url, duplicate_reason, titles_similar  # noqa: E402
+from news.duplicate_guard import (  # noqa: E402
+    active_history_items,
+    canonicalize_url,
+    duplicate_reason,
+    is_stale_pending_upload,
+    titles_similar,
+)
 
 
 class DuplicateGuardTests(unittest.TestCase):
@@ -37,6 +44,27 @@ class DuplicateGuardTests(unittest.TestCase):
 
         self.assertTrue(titles_similar(candidate["article_title"], history[0]["article_title"]))
         self.assertEqual(duplicate_reason(candidate, history), "title_similarity")
+
+    def test_stale_pending_upload_reservation_does_not_block_candidate(self):
+        now = time.time()
+        stale_pending = {
+            "article_title": "Nvidia launches a new GPU",
+            "article_url": "https://example.com/gpu",
+            "upload_status": "pending_upload",
+            "reserved_at_unix": now - 25 * 60 * 60,
+        }
+        recent_pending = {
+            "article_title": "AMD launches a new GPU",
+            "article_url": "https://example.com/amd-gpu",
+            "upload_status": "pending_upload",
+            "reserved_at_unix": now,
+        }
+
+        self.assertTrue(is_stale_pending_upload(stale_pending, now=now))
+        self.assertFalse(is_stale_pending_upload(recent_pending, now=now))
+        self.assertEqual(active_history_items([stale_pending, recent_pending], now=now), [recent_pending])
+        self.assertIsNone(duplicate_reason({"article_url": "https://example.com/gpu"}, [stale_pending]))
+        self.assertEqual(duplicate_reason({"article_url": "https://example.com/amd-gpu"}, [recent_pending]), "url")
 
 
 if __name__ == "__main__":
