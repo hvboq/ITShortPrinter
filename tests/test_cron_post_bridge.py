@@ -69,7 +69,7 @@ class CronPostBridgeTests(unittest.TestCase):
                     "language": "English",
                 }
             ]
-            youtube_instance = youtube_cls_mock.return_value
+            youtube_instance = youtube_cls_mock.for_api_upload.return_value
             youtube_instance.upload_video.return_value = False
             youtube_instance.video_path = "/tmp/video.mp4"
             youtube_instance.metadata = {"title": "Title"}
