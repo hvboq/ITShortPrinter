@@ -285,6 +285,88 @@ class TwoHourShortJobTests(unittest.TestCase):
         self.assertEqual(selected["url"], "https://example.com/archive-gpu")
         self.assertEqual(selected["selection_source"], "archive_fallback")
 
+    def test_general_archive_fallback_skips_dedicated_product_launch_sources(self) -> None:
+        job = load_job_module()
+        with tempfile.TemporaryDirectory() as tmpdir:
+            db_path = Path(tmpdir) / "archive.sqlite3"
+            con = sqlite3.connect(db_path)
+            con.execute(
+                """
+                CREATE TABLE articles (
+                    id TEXT PRIMARY KEY,
+                    payload_json TEXT,
+                    title TEXT,
+                    url TEXT,
+                    canonical_url TEXT,
+                    source_name TEXT,
+                    shorts_score INTEGER,
+                    event_type TEXT,
+                    topic_bucket TEXT,
+                    published_at TEXT,
+                    fetched_at TEXT,
+                    archived_at TEXT,
+                    shorts_video_status TEXT
+                )
+                """
+            )
+            rows = [
+                {
+                    "id": "launch-1",
+                    "title": "넷마블 신작 사전 다운로드 시작",
+                    "url": "https://example.com/game-launch",
+                    "source_name": "Google News KR Product Launch Query",
+                    "shorts_score": 100,
+                    "event_type": "product_launch",
+                    "topic_bucket": "gaming",
+                },
+                {
+                    "id": "launch-2",
+                    "title": "써멀라이트 TL-UB 국내 출시",
+                    "url": "https://example.com/product-news",
+                    "source_name": "NewsTap Product News",
+                    "shorts_score": 95,
+                    "event_type": "product_launch",
+                    "topic_bucket": "peripheral_wearable_audio",
+                },
+                {
+                    "id": "general-1",
+                    "title": "GPU supply chain expands for AI servers",
+                    "url": "https://example.com/gpu-supply",
+                    "source_name": "theverge",
+                    "shorts_score": 80,
+                    "event_type": "market_context",
+                    "topic_bucket": "ai_infra",
+                },
+            ]
+            for row in rows:
+                con.execute(
+                    "INSERT INTO articles VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                    (
+                        row["id"],
+                        json.dumps(row),
+                        row["title"],
+                        row["url"],
+                        row["url"],
+                        row["source_name"],
+                        row["shorts_score"],
+                        row["event_type"],
+                        row["topic_bucket"],
+                        "2026-06-09T00:00:00Z",
+                        "2026-06-09T00:00:00Z",
+                        "2026-06-09T00:00:00Z",
+                        "not_generated",
+                    ),
+                )
+            con.commit()
+            con.close()
+
+            with patch.object(job, "ARCHIVE_DB", db_path), patch.object(
+                job, "collect_ranked_news", return_value=[]
+            ), patch.object(job, "load_upload_history", return_value=[]):
+                selected = job.select_next_article(limit=10, topic="")
+
+        self.assertEqual(selected["url"], "https://example.com/gpu-supply")
+
 
 if __name__ == "__main__":
     unittest.main()

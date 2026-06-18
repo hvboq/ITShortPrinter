@@ -217,6 +217,59 @@ class TechNewsRankerTests(unittest.TestCase):
         self.assertGreaterEqual(supply_chain["performance_signal_bonus"], 13)
         self.assertGreater(supply_chain["shorts_score"], broad_ai["shorts_score"])
 
+    def test_geeknews_developer_tutorial_and_open_source_posts_are_strongly_demoted(self):
+        from news.ranker import score_article
+
+        geeknews_dev = score_article(
+            {
+                "title": "오픈소스 로컬 코딩 에이전트 설정하는 방법",
+                "source_id": "geeknews",
+                "source_tier": "tech_secondary",
+                "raw_excerpt": "GitHub repository, CLI tutorial, prompt framework guide for developers.",
+            }
+        )
+        gpu_supply = score_article(
+            {
+                "title": "엔비디아 RTX GPU 공급망 확대, AI PC 출하량 증가",
+                "source_tier": "news_secondary",
+                "raw_excerpt": "GPU와 반도체 공급망 수요가 늘고 있다.",
+            }
+        )
+
+        self.assertGreaterEqual(geeknews_dev["geeknews_developer_community_penalty"], 60)
+        self.assertLess(geeknews_dev["shorts_score"], gpu_supply["shorts_score"])
+
+    def test_entertainment_tech_angle_and_game_news_rank_below_industry_priorities(self):
+        from news.ranker import score_article
+
+        toy_story = score_article(
+            {
+                "title": "Toy Story 신작, AI 렌더링 기술로 제작 방식 바뀐다",
+                "source_id": "geeknews",
+                "source_tier": "tech_secondary",
+                "raw_excerpt": "Pixar movie production uses new rendering technology.",
+            }
+        )
+        game_news = score_article(
+            {
+                "title": "닌텐도 차세대 콘솔 게임 라인업 공개",
+                "source_tier": "news_secondary",
+                "raw_excerpt": "게임 신작과 콘솔 출시 일정이 공개됐다.",
+            }
+        )
+        industry = score_article(
+            {
+                "title": "삼성디스플레이, AI PC용 OLED 공급 계약 확대",
+                "source_tier": "news_secondary",
+                "raw_excerpt": "디스플레이 공급망과 반도체 부품 수요가 증가했다.",
+            }
+        )
+
+        self.assertGreater(toy_story["entertainment_culture_penalty"], 0)
+        self.assertGreater(game_news["game_news_penalty"], 0)
+        self.assertLess(toy_story["shorts_score"], industry["shorts_score"])
+        self.assertLess(game_news["shorts_score"], industry["shorts_score"])
+
     def test_low_retention_advice_titles_are_penalized(self):
         from news.ranker import score_article
 

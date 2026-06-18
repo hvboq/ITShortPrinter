@@ -15,6 +15,13 @@ if str(SRC) not in sys.path:
     sys.path.insert(0, str(SRC))
 
 from news.collector import collect_product_launch_news, collect_ranked_news  # noqa: E402
+from news.duplicate_guard import (  # noqa: E402
+    article_title,
+    article_urls,
+    duplicate_reason,
+    file_lock,
+    load_history,
+)
 from news.ranker import (  # noqa: E402
     LAUNCH_TERMS,
     _contains_any,
@@ -26,9 +33,11 @@ JOB_DIR = ROOT / ".mp" / "two_hour_job"
 LOCK_FILE = JOB_DIR / "run.lock"
 LATEST_MANIFEST = JOB_DIR / "latest_manifest.json"
 UPLOAD_MANIFEST = JOB_DIR / "upload_manifest.json"
+RUN_MANIFEST_DIR = JOB_DIR / "manifests"
 LOG_DIR = JOB_DIR / "logs"
 SCREEN_DIR = JOB_DIR / "screens"
 UPLOAD_HISTORY = ROOT / "data" / "upload_history.json"
+UPLOAD_HISTORY_LOCK = ROOT / "data" / "upload_history.lock"
 ARCHIVE_DB = ROOT / "data" / "news_archive.sqlite3"
 
 
@@ -159,14 +168,7 @@ def matches_requested_topic(article: Any, topic: str) -> bool:
 
 
 def load_upload_history() -> list[dict[str, Any]]:
-    if not UPLOAD_HISTORY.exists():
-        return []
-    try:
-        data = json.loads(UPLOAD_HISTORY.read_text(encoding="utf-8"))
-    except Exception as exc:
-        print(f"UPLOAD_HISTORY_READ_FAILED={exc}", flush=True)
-        return []
-    return data if isinstance(data, list) else []
+    return load_history(UPLOAD_HISTORY)
 
 
 def _is_product_launch_topic(topic: str) -> bool:
@@ -182,16 +184,15 @@ def _collect_articles_for_topic(limit: int, topic: str) -> list[Any]:
 
 
 def _history_keys(history: list[dict]) -> tuple[set[str], set[str]]:
-    used_urls = {
-        _norm(item.get("article_url") or item.get("url"))
-        for item in history
-        if isinstance(item, dict)
-    }
-    used_titles = {
-        _norm(item.get("article_title") or item.get("title"))
-        for item in history
-        if isinstance(item, dict)
-    }
+    used_urls: set[str] = set()
+    used_titles: set[str] = set()
+    for item in history:
+        if not isinstance(item, dict):
+            continue
+        used_urls.update(article_urls(item))
+        title = article_title(item)
+        if title:
+            used_titles.add(title)
     return used_urls, used_titles
 
 
@@ -214,6 +215,16 @@ def _row_to_archive_article(row: sqlite3.Row) -> dict[str, Any]:
         }
     )
     return article
+
+
+def _is_dedicated_product_launch_archive_source(article: dict[str, Any]) -> bool:
+    source = _norm(_article_get(article, "source_name", ""))
+    return (
+        "product launch" in source
+        or "product_launch" in source
+        or "product news" in source
+        or "제품 출시" in source
+    )
 
 
 def _archive_fallback_candidates(limit: int, topic: str, used_urls: set[str], used_titles: set[str]) -> list[dict[str, Any]]:
@@ -246,6 +257,8 @@ def _archive_fallback_candidates(limit: int, topic: str, used_urls: set[str], us
         url = _norm(_article_get(article, "url", ""))
         if (url and url in used_urls) or (title and title in used_titles):
             continue
+        if not topic and _is_dedicated_product_launch_archive_source(article):
+            continue
         if topic and not matches_requested_topic(article, topic):
             continue
         candidates.append(article)
@@ -254,7 +267,8 @@ def _archive_fallback_candidates(limit: int, topic: str, used_urls: set[str], us
 
 def select_next_article(limit: int, topic: str = "") -> Any:
     articles = _collect_articles_for_topic(limit=limit, topic=topic)
-    history = load_upload_history()
+    with file_lock(UPLOAD_HISTORY_LOCK):
+        history = load_upload_history()
     used_urls, used_titles = _history_keys(history)
 
     candidates = []
@@ -266,11 +280,12 @@ def select_next_article(limit: int, topic: str = "") -> Any:
         if not key or key in seen:
             continue
         seen.add(key)
-        if url and url in used_urls:
+        reason = duplicate_reason(_article_to_dict(article), history)
+        if reason == "url" or (url and url in used_urls):
             print(f"SKIP_ALREADY_UPLOADED|match=url|title={_article_get(article, 'title', '')}", flush=True)
             continue
-        if title and title in used_titles:
-            print(f"SKIP_ALREADY_UPLOADED|match=title|title={_article_get(article, 'title', '')}", flush=True)
+        if reason == "title_similarity" or (title and title in used_titles):
+            print(f"SKIP_ALREADY_UPLOADED|match=title_similarity|title={_article_get(article, 'title', '')}", flush=True)
             continue
         if topic and not matches_requested_topic(article, topic):
             print(
@@ -305,7 +320,9 @@ def select_next_article(limit: int, topic: str = "") -> Any:
 
 def acquire_lock(lock_ttl_minutes: int) -> bool:
     JOB_DIR.mkdir(parents=True, exist_ok=True)
-    if LOCK_FILE.exists():
+    try:
+        fd = os.open(str(LOCK_FILE), os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+    except FileExistsError:
         try:
             lock = json.loads(LOCK_FILE.read_text(encoding="utf-8"))
             started_at = int(lock.get("started_at", 0))
@@ -316,11 +333,13 @@ def acquire_lock(lock_ttl_minutes: int) -> bool:
             print(f"LOCK_ACTIVE|age_seconds={age}|path={LOCK_FILE}", flush=True)
             return False
         print(f"LOCK_STALE|age_seconds={age}|path={LOCK_FILE}", flush=True)
-
-    LOCK_FILE.write_text(
-        json.dumps({"pid": os.getpid(), "started_at": _now()}, ensure_ascii=False, indent=2),
-        encoding="utf-8",
-    )
+        try:
+            LOCK_FILE.unlink()
+        except FileNotFoundError:
+            pass
+        return acquire_lock(lock_ttl_minutes)
+    with os.fdopen(fd, "w", encoding="utf-8") as lock_file:
+        json.dump({"pid": os.getpid(), "started_at": _now()}, lock_file, ensure_ascii=False, indent=2)
     return True
 
 
@@ -333,6 +352,7 @@ def release_lock() -> None:
 
 def write_single_item_manifest(article: Any, video_path: str, youtube: Any) -> Path:
     JOB_DIR.mkdir(parents=True, exist_ok=True)
+    RUN_MANIFEST_DIR.mkdir(parents=True, exist_ok=True)
     manifest_item = {
         "rank": 1,
         "article_title": _article_get(article, "title", ""),
@@ -346,12 +366,18 @@ def write_single_item_manifest(article: Any, video_path: str, youtube: Any) -> P
         "script": getattr(youtube, "script", ""),
         "article": _article_to_dict(article),
     }
-    LATEST_MANIFEST.write_text(
+    run_manifest = RUN_MANIFEST_DIR / f"manifest_{int(time.time())}_{os.getpid()}.json"
+    run_manifest.write_text(
         json.dumps([manifest_item], ensure_ascii=False, indent=2),
         encoding="utf-8",
     )
-    print(f"MANIFEST={LATEST_MANIFEST}", flush=True)
-    return LATEST_MANIFEST
+    LATEST_MANIFEST.write_text(
+        json.dumps({"manifest": str(run_manifest), "updated_at_unix": time.time()}, ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
+    print(f"MANIFEST={run_manifest}", flush=True)
+    print(f"LATEST_MANIFEST_POINTER={LATEST_MANIFEST}", flush=True)
+    return run_manifest
 
 
 def upload_manifest(manifest_path: Path, visibility: str) -> int:
@@ -400,9 +426,21 @@ def run_job() -> int:
     from classes.Tts import TTS
     from classes.YouTube import YouTube
 
+    with file_lock(UPLOAD_HISTORY_LOCK):
+        reason = duplicate_reason(_article_to_dict(article), load_upload_history())
+    if reason:
+        print(f"SKIP_RENDER_DUPLICATE_BEFORE_GENERATION|match={reason}|title={_article_get(article, 'title', '')}", flush=True)
+        return 0
+
     youtube = YouTube.for_local_generation(niche="Korean IT News", language="Korean")
     video_path = youtube.generate_video_from_news(TTS(), article)
     print(f"GENERATED_VIDEO={video_path}", flush=True)
+
+    with file_lock(UPLOAD_HISTORY_LOCK):
+        reason = duplicate_reason(_article_to_dict(article), load_upload_history())
+    if reason:
+        print(f"SKIP_UPLOAD_DUPLICATE_AFTER_GENERATION|match={reason}|title={_article_get(article, 'title', '')}", flush=True)
+        return 0
 
     manifest_path = write_single_item_manifest(article, video_path, youtube)
     upload_exit = upload_manifest(manifest_path, visibility)

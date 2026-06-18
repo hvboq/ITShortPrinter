@@ -8,11 +8,13 @@ from pathlib import Path
 import _bootstrap  # noqa: F401
 from config import get_youtube_channel_config
 from news.archive import mark_shorts_status
+from news.duplicate_guard import duplicate_reason, file_lock, load_history
 from project_paths import project_root
 from youtube_api.uploader import clean_description, clean_title, upload_video
 
 ROOT = project_root()
 UPLOAD_HISTORY = ROOT / "data" / "upload_history.json"
+UPLOAD_HISTORY_LOCK = ROOT / "data" / "upload_history.lock"
 SOURCE_LINK_LABEL = "원본 기사"
 MAX_YOUTUBE_DESCRIPTION_LENGTH = 4500
 
@@ -42,30 +44,72 @@ def build_upload_description(base_description: str, article_url: str | None) -> 
 
 
 def append_upload_history(entry: dict) -> None:
-    try:
-        history = (
-            json.loads(UPLOAD_HISTORY.read_text(encoding="utf-8"))
-            if UPLOAD_HISTORY.exists()
-            else []
-        )
-        if not isinstance(history, list):
-            history = []
-    except Exception:
-        history = []
-
-    key = entry.get("article_url") or entry.get("uploaded_url") or entry.get("title")
-    existing = {
-        item.get("article_url") or item.get("uploaded_url") or item.get("title")
-        for item in history
-        if isinstance(item, dict)
-    }
-    if key not in existing:
+    with file_lock(UPLOAD_HISTORY_LOCK):
+        history = load_history(UPLOAD_HISTORY)
+        if duplicate_reason(entry, history):
+            return
         UPLOAD_HISTORY.parent.mkdir(parents=True, exist_ok=True)
         history.append(entry)
         UPLOAD_HISTORY.write_text(
             json.dumps(history, ensure_ascii=False, indent=2),
             encoding="utf-8",
         )
+
+
+def _reservation_key(item: dict) -> str:
+    return str(item.get("article_url") or item.get("article_title") or item.get("title") or item.get("video_path") or "")
+
+
+def reserve_upload_item(item: dict, title: str) -> str | None:
+    """Atomically reserve an article before YouTube API upload."""
+    reservation_key = _reservation_key(item)
+    reservation = {
+        "article_title": item.get("article_title") or title,
+        "article_url": item.get("article_url"),
+        "article_id": item.get("article_id"),
+        "source": item.get("source"),
+        "title": title,
+        "upload_status": "pending_upload",
+        "reserved_at_unix": time.time(),
+        "reservation_key": reservation_key,
+    }
+    with file_lock(UPLOAD_HISTORY_LOCK):
+        history = load_history(UPLOAD_HISTORY)
+        reason = duplicate_reason(item, history)
+        if reason:
+            return reason
+        UPLOAD_HISTORY.parent.mkdir(parents=True, exist_ok=True)
+        history.append(reservation)
+        UPLOAD_HISTORY.write_text(json.dumps(history, ensure_ascii=False, indent=2), encoding="utf-8")
+    return None
+
+
+def finalize_upload_reservation(item: dict, result: dict) -> None:
+    reservation_key = _reservation_key(item)
+    with file_lock(UPLOAD_HISTORY_LOCK):
+        history = load_history(UPLOAD_HISTORY)
+        replaced = False
+        for idx, existing in enumerate(history):
+            if isinstance(existing, dict) and existing.get("reservation_key") == reservation_key:
+                history[idx] = result
+                replaced = True
+                break
+        if not replaced and not duplicate_reason(result, history):
+            history.append(result)
+        UPLOAD_HISTORY.parent.mkdir(parents=True, exist_ok=True)
+        UPLOAD_HISTORY.write_text(json.dumps(history, ensure_ascii=False, indent=2), encoding="utf-8")
+
+
+def clear_upload_reservation(item: dict) -> None:
+    reservation_key = _reservation_key(item)
+    with file_lock(UPLOAD_HISTORY_LOCK):
+        history = [
+            existing
+            for existing in load_history(UPLOAD_HISTORY)
+            if not (isinstance(existing, dict) and existing.get("reservation_key") == reservation_key)
+        ]
+        UPLOAD_HISTORY.parent.mkdir(parents=True, exist_ok=True)
+        UPLOAD_HISTORY.write_text(json.dumps(history, ensure_ascii=False, indent=2), encoding="utf-8")
 
 
 def _load_manifest(manifest_path: Path) -> list[dict]:
@@ -122,16 +166,36 @@ def upload_manifest_with_api(
             item.get("metadata", {}).get("description") or "",
             item.get("article_url"),
         )
+        with file_lock(UPLOAD_HISTORY_LOCK):
+            reason = duplicate_reason(item, load_history(UPLOAD_HISTORY))
+        if reason:
+            print(
+                f"UPLOAD_{rank}_SKIP_DUPLICATE|match={reason}|title={title}",
+                flush=True,
+            )
+            continue
         print(f"UPLOAD_{rank}_START|provider=youtube_api|path={video_path}|title={title}", flush=True)
 
-        uploaded = upload_video(
-            video_path=video_path,
-            title=title,
-            description=desc,
-            visibility=visibility,
-            notify_subscribers=os.environ.get("YOUTUBE_NOTIFY_SUBSCRIBERS", "").lower()
-            in {"1", "true", "yes"},
-        )
+        reason = reserve_upload_item(item, title)
+        if reason:
+            print(
+                f"UPLOAD_{rank}_SKIP_DUPLICATE_BEFORE_API|match={reason}|title={title}",
+                flush=True,
+            )
+            continue
+
+        try:
+            uploaded = upload_video(
+                video_path=video_path,
+                title=title,
+                description=desc,
+                visibility=visibility,
+                notify_subscribers=os.environ.get("YOUTUBE_NOTIFY_SUBSCRIBERS", "").lower()
+                in {"1", "true", "yes"},
+            )
+        except Exception:
+            clear_upload_reservation(item)
+            raise
         result = {
             "rank": rank,
             "video_path": video_path,
@@ -162,7 +226,9 @@ def upload_manifest_with_api(
                 uploaded_url=result["uploaded_url"],
             )
         if update_history:
-            append_upload_history(result)
+            finalize_upload_reservation(item, result)
+        else:
+            clear_upload_reservation(item)
         print(f"UPLOAD_{rank}_DONE|provider=youtube_api|url={result['uploaded_url']}", flush=True)
 
     print(done_label, flush=True)

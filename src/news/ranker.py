@@ -154,9 +154,24 @@ DEVELOPER_AUDIENCE_TERMS = AI_DEVELOPMENT_TERMS + [
 GEEKNEWS_DEVELOPER_COMMUNITY_TERMS = [
     "coding agent", "local coding", "developer tool", "dev tool", "github", "repository", "repo", "commit",
     "pull request", "cli", "terminal", "command line", "framework", "library", "sdk", "benchmark",
-    "open source", "self-hosted", "codex", "prompt", "코덱스", "프롬프트", "코딩 에이전트", "로컬 코딩", "개발 도구", "개발자 도구",
+    "open source", "opensource", "self-hosted", "tutorial", "how to", "guide", "walkthrough",
+    "codex", "prompt", "코덱스", "프롬프트", "코딩 에이전트", "로컬 코딩", "개발 도구", "개발자 도구",
     "깃", "깃허브", "저장소", "커밋", "풀리퀘스트", "터미널", "명령줄", "커맨드라인",
-    "프레임워크", "라이브러리", "벤치마크", "오픈소스", "설정하는 방법", "사용하는 방법",
+    "프레임워크", "라이브러리", "벤치마크", "오픈소스", "튜토리얼", "가이드", "설정하는 방법", "사용하는 방법",
+]
+ENTERTAINMENT_CULTURE_TERMS = [
+    "movie", "film", "cinema", "box office", "trailer", "hollywood", "disney", "pixar", "toy story",
+    "netflix", "drama", "anime", "animation", "celebrity", "entertainment", "culture",
+    "영화", "박스오피스", "예고편", "할리우드", "디즈니", "픽사", "토이 스토리", "토이스토리",
+    "넷플릭스", "드라마", "애니", "애니메이션", "연예", "엔터", "엔터테인먼트", "문화",
+]
+ENTERTAINMENT_TECH_ANGLE_TERMS = [
+    "ai", "artificial intelligence", "vfx", "cgi", "render", "streaming", "vr", "ar", "technology", "tech",
+    "인공지능", "생성 ai", "vfx", "cg", "컴퓨터 그래픽", "렌더링", "스트리밍", "기술",
+]
+GAME_NEWS_TERMS = [
+    "game", "gaming", "console", "xbox", "playstation", "nintendo", "steam", "epic games",
+    "게임", "게이밍", "콘솔", "엑스박스", "플레이스테이션", "닌텐도", "스팀",
 ]
 STRATEGIC_IMPORTANCE_TERMS = [
     "first", "flagship", "mainstream", "affordable", "cheaper", "price cut", "faster", "battery", "foldable",
@@ -364,8 +379,34 @@ def geeknews_developer_community_penalty(text: str, source_id: str, technologies
     if _contains_any(text, HIGH_PERFORMANCE_INDUSTRY_TERMS) or any(
         tech in technologies for tech in ("gpu", "cpu", "chipset", "display", "pc_laptop")
     ):
-        return 15
-    return 45
+        return 25
+    return 60
+
+
+def entertainment_culture_penalty(text: str, source_id: str) -> int:
+    """Demote movie/entertainment/culture stories in the general hourly queue.
+
+    They may include a technology angle, but channel performance priorities favor
+    concrete hardware/AI-PC/semiconductor/supply-chain stories over #영화뉴스류.
+    """
+    if not _contains_any(text, ENTERTAINMENT_CULTURE_TERMS):
+        return 0
+    if _contains_any(text, HIGH_PERFORMANCE_INDUSTRY_TERMS):
+        return 10
+    if source_id == "geeknews":
+        return 48
+    if _contains_any(text, ENTERTAINMENT_TECH_ANGLE_TERMS):
+        return 34
+    return 55
+
+
+def game_news_penalty(text: str) -> int:
+    """Allow game news, but rank it below GPU/AI-PC/semiconductor priorities."""
+    if not _contains_any(text, GAME_NEWS_TERMS):
+        return 0
+    if _contains_any(text, HIGH_PERFORMANCE_INDUSTRY_TERMS) or _contains_any(text, ["gpu", "rtx", "radeon", "graphics", "그래픽카드"]):
+        return 8
+    return 18
 
 
 def scope_drift_penalty(text: str, event_type: str) -> int:
@@ -596,6 +637,8 @@ def score_article(article: dict) -> dict:
     geeknews_penalty = geeknews_developer_community_penalty(
         text, article.get("source_id", ""), technologies
     )
+    entertainment_penalty = entertainment_culture_penalty(text, article.get("source_id", ""))
+    game_penalty = game_news_penalty(text)
     audience_fit = classify_audience_fit(text, technologies)
     audience_score = audience_fit_score(audience_fit)
     strategic_score = strategic_importance_score(text, event_type, brands, technologies)
@@ -626,6 +669,8 @@ def score_article(article: dict) -> dict:
                 - geeknews_penalty
                 - retention_penalty
                 - enterprise_penalty
+                - entertainment_penalty
+                - game_penalty
             ),
         ),
     )
@@ -664,6 +709,8 @@ def score_article(article: dict) -> dict:
             "learned_performance_weight_bonus": learned_bonus,
             "low_retention_format_penalty": retention_penalty,
             "enterprise_product_penalty": enterprise_penalty,
+            "entertainment_culture_penalty": entertainment_penalty,
+            "game_news_penalty": game_penalty,
             "scope_drift_penalty": scope_penalty,
             "geeknews_developer_community_penalty": geeknews_penalty,
             "llm_score": llm_score,
