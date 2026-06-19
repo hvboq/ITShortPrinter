@@ -749,8 +749,17 @@ class YouTube:
         return srt_path
 
     def generate_safe_subtitles(self, audio_path: str, duration_seconds: float) -> str:
-        """Generate STT subtitles, falling back to script-based subtitles when STT is unavailable."""
-        if os.environ.get("SHORTS_FORCE_SCRIPT_SUBTITLES", "").strip().lower() in {"1", "true", "yes"}:
+        """Generate upload-safe subtitles.
+
+        Default to the already-approved narration script rather than transcribing
+        the TTS audio back through STT. Product/model names in IT news are often
+        alphanumeric, and STT can corrupt them (for example A37 5G -> A375G).
+        Set SHORTS_USE_STT_SUBTITLES=1 only when audio-derived captions are
+        explicitly desired.
+        """
+        use_stt = os.environ.get("SHORTS_USE_STT_SUBTITLES", "").strip().lower() in {"1", "true", "yes"}
+        force_script = os.environ.get("SHORTS_FORCE_SCRIPT_SUBTITLES", "").strip().lower() in {"1", "true", "yes"}
+        if force_script or not use_stt:
             return self.generate_subtitles_from_script(duration_seconds=duration_seconds)
         try:
             return self.generate_subtitles(audio_path)

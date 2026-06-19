@@ -1,6 +1,7 @@
 import sys
 import unittest
 from pathlib import Path
+from unittest import mock
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 SRC_DIR = PROJECT_ROOT / "src"
@@ -42,6 +43,41 @@ class SubtitleFallbackTests(unittest.TestCase):
 
         self.assertIn("한국어 대본 기반 자막입니다", content)
         self.assertIn("STT가 실패해도 화면에 보여야 합니다", content)
+
+    def test_safe_subtitle_generation_uses_script_by_default_without_stt(self):
+        from classes.YouTube import YouTube
+
+        youtube = YouTube.for_local_generation(niche="Korean IT News", language="Korean")
+        youtube.script = "갤럭시 A37 5G를 그대로 쓰는 대본 기반 자막입니다."
+
+        def fail_if_called(_audio_path):
+            raise AssertionError("STT should not be called by default")
+
+        youtube.generate_subtitles = fail_if_called
+        with mock.patch.dict("os.environ", {}, clear=True):
+            srt_path = youtube.generate_safe_subtitles("missing.wav", duration_seconds=4.0)
+        content = Path(srt_path).read_text(encoding="utf-8")
+
+        self.assertIn("갤럭시 A37 5G를", content)
+
+    def test_safe_subtitle_generation_can_opt_into_stt(self):
+        from classes.YouTube import YouTube
+
+        youtube = YouTube.for_local_generation(niche="Korean IT News", language="Korean")
+        youtube.script = "이 대본은 STT 선택 테스트입니다."
+
+        def fake_stt(_audio_path):
+            path = PROJECT_ROOT / ".mp" / "fake-stt-test.srt"
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text("1\n00:00:00,000 --> 00:00:01,000\nSTT 자막\n", encoding="utf-8")
+            return str(path)
+
+        youtube.generate_subtitles = fake_stt
+        with mock.patch.dict("os.environ", {"SHORTS_USE_STT_SUBTITLES": "1"}, clear=True):
+            srt_path = youtube.generate_safe_subtitles("audio.wav", duration_seconds=4.0)
+        content = Path(srt_path).read_text(encoding="utf-8")
+
+        self.assertIn("STT 자막", content)
 
     def test_subtitle_overlay_uses_image_clips_not_imagemagick_textclip(self):
         from classes.YouTube import YouTube
