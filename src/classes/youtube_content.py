@@ -11,6 +11,10 @@ def clean_generated_korean_text(text: str) -> str:
         "AI Agentic": "에이전틱 AI",
         "agentic AIagentic": "에이전틱 AI",
         "Agentic AIagentic": "에이전틱 AI",
+        "갤럭시 에이37 5세대": "갤럭시 A37 5G",
+        "에이37 5세대": "A37 5G",
+        "A375G": "A37 5G",
+        "중국형 가격대": "중급형 가격대",
     }
     for old, new in replacements.items():
         text = text.replace(old, new)

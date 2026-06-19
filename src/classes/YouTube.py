@@ -750,6 +750,8 @@ class YouTube:
 
     def generate_safe_subtitles(self, audio_path: str, duration_seconds: float) -> str:
         """Generate STT subtitles, falling back to script-based subtitles when STT is unavailable."""
+        if os.environ.get("SHORTS_FORCE_SCRIPT_SUBTITLES", "").strip().lower() in {"1", "true", "yes"}:
+            return self.generate_subtitles_from_script(duration_seconds=duration_seconds)
         try:
             return self.generate_subtitles(audio_path)
         except Exception as e:
