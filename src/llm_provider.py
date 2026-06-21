@@ -81,6 +81,17 @@ def _normalize_hermes_model(model_name: str | None) -> str:
     return raw
 
 
+def _clean_hermes_cli_stdout(stdout: str) -> str:
+    """Remove Hermes CLI diagnostic warnings from text-generation output."""
+    lines = []
+    for line in str(stdout or "").splitlines():
+        stripped = line.strip()
+        if stripped.startswith("Warning: Unknown toolsets:"):
+            continue
+        lines.append(line)
+    return "\n".join(lines).strip()
+
+
 def _run_hermes_chat(prompt: str, model_name: str | None = None) -> str:
     """Generate text via Hermes CLI single-query mode."""
     command = ["hermes", "chat", "-q", prompt, "--quiet"]
@@ -105,7 +116,7 @@ def _run_hermes_chat(prompt: str, model_name: str | None = None) -> str:
         detail = stderr or stdout or f"exit code {completed.returncode}"
         raise RuntimeError(f"Hermes text generation failed: {detail}")
 
-    response = str(completed.stdout or "").strip()
+    response = _clean_hermes_cli_stdout(completed.stdout)
     if not response:
         raise RuntimeError("Hermes text generation returned an empty response.")
     return response

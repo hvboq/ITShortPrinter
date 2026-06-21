@@ -58,6 +58,25 @@ class HermesTextProviderTests(unittest.TestCase):
         self.assertIn("--provider", args)
         self.assertIn("openai-codex", args)
 
+    def test_hermes_cli_command_strips_toolset_warnings_from_response(self):
+        import llm_provider
+
+        completed = type(
+            "Completed",
+            (),
+            {
+                "returncode": 0,
+                "stdout": "Warning: Unknown toolsets: messaging\n씽크패드 P1 9세대 공개\n",
+                "stderr": "",
+            },
+        )()
+
+        with patch("llm_provider.subprocess.run", return_value=completed):
+            result = llm_provider._run_hermes_chat("제목 생성", model_name="gpt-5.5")
+
+        self.assertEqual(result, "씽크패드 P1 9세대 공개")
+        self.assertNotIn("Unknown toolsets", result)
+
     def test_text_provider_defaults_can_be_configured_to_hermes(self):
         import config
 
