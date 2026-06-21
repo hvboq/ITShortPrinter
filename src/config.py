@@ -566,6 +566,7 @@ def get_news_pipeline_config() -> dict:
             "quasarzone_mobile_news",
             "geeknews",
             "newstap",
+            "the_edit",
         ],
         "priority_keywords": [
             "samsung",

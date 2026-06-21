@@ -48,7 +48,7 @@ class NewsPipelineTests(unittest.TestCase):
             "max_candidates_per_source": 3,
             "max_selected_articles": 3,
             "use_llm_scoring": True,
-            "sources": ["theverge", "zdnet_korea", "bloter", "geeknews", "newstap"],
+            "sources": ["theverge", "zdnet_korea", "bloter", "geeknews", "newstap", "the_edit"],
             "priority_keywords": ["samsung", "udc", "battery", "launch", "출시"],
             "scoring_weights": {
                 "public_interest": 0.35,
@@ -138,6 +138,7 @@ class NewsPipelineTests(unittest.TestCase):
             ("bloter", "https://www.bloter.net/section/it", {"www.bloter.net", "bloter.net"}),
             ("geeknews", "https://news.hada.io/rss/news", {"news.hada.io"}),
             ("newstap", "https://www.newstap.co.kr/rssIndex.html", {"www.newstap.co.kr"}),
+            ("the_edit", "https://the-edit.co.kr/category/tech", {"the-edit.co.kr"}),
         ]
 
         for source, url, domains in blocked_cases:
@@ -200,6 +201,33 @@ class NewsPipelineTests(unittest.TestCase):
             )
         )
 
+    def test_the_edit_rss_and_article_urls_are_accepted(self) -> None:
+        pipeline = self.build_pipeline()
+        rss = """<?xml version="1.0" encoding="UTF-8"?>
+        <rss><channel>
+          <item>
+            <title>M5 맥북 에어 리뷰: 꼭 프로 사야 하나요?</title>
+            <link>https://the-edit.co.kr/86014</link>
+          </item>
+        </channel></rss>
+        """
+        pipeline.session.get.return_value = MockResponse(rss)
+
+        urls = pipeline._fetch_rss_urls(
+            "https://the-edit.co.kr/feed/",
+            "the_edit",
+            {"the-edit.co.kr", "www.the-edit.co.kr"},
+        )
+
+        self.assertEqual(urls, ["https://the-edit.co.kr/86014"])
+        self.assertTrue(
+            pipeline._is_valid_candidate_url(
+                "the_edit",
+                "https://the-edit.co.kr/86014",
+                {"the-edit.co.kr", "www.the-edit.co.kr"},
+            )
+        )
+
     def test_expanded_source_url_filters_accept_representative_articles(self) -> None:
         pipeline = self.build_pipeline()
         accepted_cases = [
@@ -222,6 +250,7 @@ class NewsPipelineTests(unittest.TestCase):
             ("meeco_news", "https://meeco.kr/news/12345678", {"meeco.kr"}),
             ("quasarzone_hardware_news", "https://quasarzone.com/bbs/qn_hardware/views/123456", {"quasarzone.com"}),
             ("quasarzone_mobile_news", "https://quasarzone.com/bbs/qn_mobile/views/123456", {"quasarzone.com"}),
+            ("the_edit", "https://the-edit.co.kr/86014", {"the-edit.co.kr", "www.the-edit.co.kr"}),
         ]
 
         for source, url, domains in accepted_cases:
@@ -289,6 +318,26 @@ class NewsPipelineTests(unittest.TestCase):
 
         self.assertIn("신제품 메인보드", content)
         self.assertIn("Wi-Fi 7", content)
+
+    def test_the_edit_article_content_uses_single_content_selector(self) -> None:
+        pipeline = self.build_pipeline()
+        content = pipeline._extract_content(
+            """
+            <html>
+              <body>
+                <div class="single-content">
+                  <p>안녕하세요, 디에디트의 맥북 에어 리뷰입니다.</p>
+                  <p>M5 맥북 에어는 일상 작업과 영상 편집에서 충분한 성능을 보여주며, 배터리 효율도 좋아졌습니다.</p>
+                  <p>프로 모델이 꼭 필요하지 않은 사용자라면 노트북 선택 기준을 다시 생각해볼 만합니다.</p>
+                </div>
+              </body>
+            </html>
+            """,
+            "the_edit",
+        )
+
+        self.assertIn("M5 맥북 에어", content)
+        self.assertIn("노트북 선택 기준", content)
 
     def test_article_dedupe_uses_normalized_title(self) -> None:
         pipeline = self.build_pipeline()

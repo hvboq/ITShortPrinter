@@ -38,7 +38,7 @@ All your configurations live in a root-level `config.json`, which starts as a co
 - `news_pipeline.max_candidates_per_source`: `number` - Maximum parsed candidates kept per source.
 - `news_pipeline.max_selected_articles`: `number` - Final number of ranked articles kept after dedupe.
 - `news_pipeline.use_llm_scoring`: `boolean` - Enables LLM-assisted scoring in addition to heuristic scoring.
-- `news_pipeline.sources`: `string[]` - Supported sources: `theverge`, `zdnet_korea`, `bloter`, `etnews`, `engadget`, `ars_technica`, `wired`, `mit_technology_review`, `apple_newsroom`, `google_keyword`, `microsoft_source`, `samsung_newsroom`, `samsung_mobile_press`, `openai_news`, `anthropic_news`, `google_deepmind_blog`, `google_news_technology`, `ifixit_news`, `toms_hardware`, `meeco_news`, `quasarzone_hardware_news`, `quasarzone_mobile_news`, `geeknews`, `newstap`.
+- `news_pipeline.sources`: `string[]` - Supported sources: `theverge`, `zdnet_korea`, `bloter`, `etnews`, `engadget`, `ars_technica`, `wired`, `mit_technology_review`, `apple_newsroom`, `google_keyword`, `microsoft_source`, `samsung_newsroom`, `samsung_mobile_press`, `openai_news`, `anthropic_news`, `google_deepmind_blog`, `google_news_technology`, `ifixit_news`, `toms_hardware`, `meeco_news`, `quasarzone_hardware_news`, `quasarzone_mobile_news`, `geeknews`, `newstap`, `the_edit`.
 - `news_pipeline.priority_keywords`: `string[]` - Keywords that boost ranking for product launches and core technologies.
 - `news_pipeline.scoring_weights`: `object` - Weights for `public_interest`, `realism`, `llm`, and `keyword`.
 - `post_bridge`: `object` - Settings for cross-posting after uploads.
@@ -115,7 +115,8 @@ All your configurations live in a root-level `config.json`, which starts as a co
       "quasarzone_hardware_news",
       "quasarzone_mobile_news",
       "geeknews",
-      "newstap"
+      "newstap",
+      "the_edit"
     ],
     "priority_keywords": [
       "samsung",

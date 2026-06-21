@@ -202,6 +202,12 @@ class NewsPipeline:
             "seed_urls": [],
             "allowed_domains": {"www.newstap.co.kr", "newstap.co.kr"},
         },
+        "the_edit": {
+            "homepage": "https://the-edit.co.kr/",
+            "rss": "https://the-edit.co.kr/feed/",
+            "seed_urls": [],
+            "allowed_domains": {"the-edit.co.kr", "www.the-edit.co.kr"},
+        },
     }
 
     GENERAL_NON_ARTICLE_PATH_TOKENS = (
@@ -470,6 +476,9 @@ class NewsPipeline:
         if source == "newstap":
             return path == "/news/articleview.html" and "idxno=" in parsed.query.lower()
 
+        if source == "the_edit":
+            return re.fullmatch(r"/[0-9]+/?", path) is not None
+
         return False
 
     def _fetch_article(self, source: str, url: str) -> Optional[NewsArticle]:
@@ -589,6 +598,7 @@ class NewsPipeline:
             "iphone",
             "galaxy",
             "laptop",
+            "macbook",
             "notebook",
             "tablet",
             "watch",
@@ -611,6 +621,7 @@ class NewsPipeline:
             "아이폰",
             "갤럭시",
             "노트북",
+            "맥북",
             "태블릿",
             "워치",
             "웨어러블",
@@ -634,6 +645,7 @@ class NewsPipeline:
             "iphone",
             "galaxy",
             "laptop",
+            "macbook",
             "notebook",
             "tablet",
             "watch",
@@ -661,6 +673,7 @@ class NewsPipeline:
             "아이폰",
             "갤럭시",
             "노트북",
+            "맥북",
             "태블릿",
             "워치",
             "웨어러블",
@@ -856,6 +869,12 @@ class NewsPipeline:
             selectors = [
                 ("attr", "id", "article-view-content-div"),
                 ("attr", "class", "article-body"),
+                ("tag", "article"),
+            ]
+        elif source == "the_edit":
+            selectors = [
+                ("attr", "class", "single-content"),
+                ("attr", "class", "entry-content"),
                 ("tag", "article"),
             ]
 

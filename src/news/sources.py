@@ -156,6 +156,12 @@ PHASE_1_SOURCES = [
         "rss_url": "https://cdn.newstap.co.kr/rss/gn_rss_allArticle.xml",
     },
     {
+        "id": "the_edit",
+        "name": "The Edit",
+        "tier": "news_secondary",
+        "rss_url": "https://the-edit.co.kr/feed/",
+    },
+    {
         "id": "google_news_query_launches_ko",
         "name": "Google News KR Launch Query",
         "tier": "search_aggregator",

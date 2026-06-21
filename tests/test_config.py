@@ -107,6 +107,7 @@ class PostBridgeConfigTests(unittest.TestCase):
                             "meeco_news",
                             "quasarzone_hardware_news",
                             "quasarzone_mobile_news",
+                            "the_edit",
                             "unknown_source",
                         ],
                     }
@@ -140,6 +141,7 @@ class PostBridgeConfigTests(unittest.TestCase):
                 "meeco_news",
                 "quasarzone_hardware_news",
                 "quasarzone_mobile_news",
+                "the_edit",
             ],
         )
 
