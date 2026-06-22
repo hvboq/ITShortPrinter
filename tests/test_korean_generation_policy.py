@@ -49,6 +49,24 @@ class KoreanGenerationPolicyTests(unittest.TestCase):
         self.assertIn("반드시 한국어로만", captured_prompts[0])
         self.assertIn("반드시 한국어로만", captured_prompts[1])
 
+    def test_youtube_metadata_prompt_preserves_alphanumeric_model_names(self):
+        from classes.YouTube import YouTube
+
+        youtube = YouTube.for_local_generation(niche="IT News", language="Korean")
+        youtube.subject = "삼성 갤럭시 S27 Pro 6.47인치 중형 화면 신설 소식"
+        youtube.script = "갤럭시 S27 Pro 소식입니다."
+        captured_prompts = []
+
+        def fake_response(prompt):
+            captured_prompts.append(prompt)
+            return "삼성 갤럭시 에스이십칠 프로 소식 #갤럭시" if len(captured_prompts) == 1 else "설명입니다."
+
+        with patch.object(youtube, "generate_response", side_effect=fake_response):
+            metadata = youtube.generate_metadata()
+
+        self.assertIn("공식 모델명은 한글로 풀어 쓰거나 번역하지 말고", captured_prompts[0])
+        self.assertEqual(metadata["title"], "삼성 갤럭시 S27 Pro 소식 #갤럭시")
+
     def test_youtube_image_prompt_request_uses_korean_context_and_forces_korean_json_strings(self):
         from classes.YouTube import YouTube
 

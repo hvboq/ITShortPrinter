@@ -14,6 +14,12 @@ def clean_generated_korean_text(text: str) -> str:
         "갤럭시 에이37 5세대": "갤럭시 A37 5G",
         "에이37 5세대": "A37 5G",
         "A375G": "A37 5G",
+        "갤럭시 에스이십칠 프로": "갤럭시 S27 Pro",
+        "에스이십칠 프로": "S27 Pro",
+        "갤럭시 에스이십칠": "갤럭시 S27",
+        "에스이십칠": "S27",
+        "갤럭시 에스이십육 FE": "갤럭시 S26 FE",
+        "에스이십육 FE": "S26 FE",
         "중국형 가격대": "중급형 가격대",
     }
     for old, new in replacements.items():
