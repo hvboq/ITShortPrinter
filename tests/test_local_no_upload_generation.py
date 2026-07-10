@@ -72,7 +72,7 @@ class LocalNoUploadGenerationTests(unittest.TestCase):
                 self.assertEqual(args[0], "hermes")
                 self.assertIn("image_gen", args)
                 self.assertIn("openai-codex", args)
-                self.assertIn("gpt-5.5", args)
+                self.assertIn("gpt-5.6-sol", args)
                 return subprocess.CompletedProcess(args, 0, stdout=str(generated), stderr="")
 
             youtube = YouTube.for_local_generation(niche="IT News", language="Korean")

@@ -45,7 +45,7 @@ Several service categories use a string-based dispatch pattern configured in `co
 
 | Category | Config key | Options |
 |---|---|---|
-| Text/LLM | `text_provider` | `ollama` (local, via `ollama` SDK), `gemini` (Google Generative Language API when the model name starts with `gemini`), `hermes` (Hermes CLI, default `gpt-5.5`). If no Ollama model is selected, the user picks from available models at startup. |
+| Text/LLM | `text_provider` | `ollama` (local, via `ollama` SDK), `gemini` (Google Generative Language API when the model name starts with `gemini`), `hermes` (Hermes CLI, default `gpt-5.6-sol` via `openai-codex`). If no Ollama model is selected, the user picks from available models at startup. |
 | Image gen | `image_provider` | `gemini` / `nanobanana2` (Gemini image API, default), `hermes` (consumes images from `.mp/hermes_images/queue`), `placeholder` (smoke tests) |
 | TTS | `tts_provider` | `kitten` (KittenTTS, default), `silent` (smoke tests) |
 | STT | `stt_provider` | `local_whisper`, `third_party_assemblyai` |

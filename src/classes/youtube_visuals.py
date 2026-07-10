@@ -111,7 +111,7 @@ def generate_hermes_cli_image(prompt: str, images: list[str]) -> str | None:
 
     hermes_cmd = os.environ.get("HERMES_CLI", "hermes")
     provider = os.environ.get("HERMES_IMAGE_PROVIDER", "openai-codex")
-    model = os.environ.get("HERMES_IMAGE_MODEL", "gpt-5.5")
+    model = os.environ.get("HERMES_IMAGE_MODEL", "gpt-5.6-sol")
     timeout = int(os.environ.get("HERMES_IMAGE_TIMEOUT_SECONDS", "600"))
     request = (
         "Generate one vertical 9:16 YouTube Shorts background image for this Korean IT news prompt. "

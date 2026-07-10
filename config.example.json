@@ -5,7 +5,7 @@
   "ollama_base_url": "http://host.docker.internal:11434",
   "ollama_model": "gemma4:26b",
   "script_review_enabled": true,
-  "script_review_model": "hermes:gpt-5.5",
+  "script_review_model": "hermes:gpt-5.6-sol",
   "twitter_language": "English",
   "nanobanana2_api_base_url": "https://generativelanguage.googleapis.com/v1beta",
   "nanobanana2_api_key": "",
@@ -107,5 +107,5 @@
   },
   "text_provider": "hermes",
   "hermes_provider": "openai-codex",
-  "hermes_model": "gpt-5.5"
+  "hermes_model": "gpt-5.6-sol"
 }

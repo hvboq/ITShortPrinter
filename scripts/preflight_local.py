@@ -52,7 +52,7 @@ def main() -> int:
     image_provider = str(cfg.get("image_provider", "gemini")).lower()
     text_provider = str(cfg.get("text_provider", "ollama")).lower()
     configured_text_model = str(cfg.get("ollama_model", "")).strip()
-    hermes_model = str(cfg.get("hermes_model", "gpt-5.5")).strip() or "gpt-5.5"
+    hermes_model = str(cfg.get("hermes_model", "gpt-5.6-sol")).strip() or "gpt-5.6-sol"
     hermes_provider = str(cfg.get("hermes_provider", "")).strip() or os.environ.get("HERMES_TEXT_PROVIDER", "").strip()
     using_gemini_text = configured_text_model.lower().startswith("gemini")
 

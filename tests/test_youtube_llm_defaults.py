@@ -27,10 +27,10 @@ class YouTubeLlmDefaultsTests(unittest.TestCase):
 
         youtube = YouTube.for_local_generation(niche="IT News", language="Korean")
         with patch("classes.YouTube.generate_text", return_value="ok") as generate_text:
-            response = youtube.generate_response("hello", model_name="hermes:gpt-5.5")
+            response = youtube.generate_response("hello", model_name="hermes:gpt-5.6-sol")
 
         self.assertEqual(response, "ok")
-        generate_text.assert_called_once_with("hello", model_name="hermes:gpt-5.5")
+        generate_text.assert_called_once_with("hello", model_name="hermes:gpt-5.6-sol")
 
 
 if __name__ == "__main__":

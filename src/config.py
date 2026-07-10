@@ -194,7 +194,7 @@ def get_text_provider() -> str:
     Supported values:
     - ollama: local Ollama chat API
     - gemini: Google Generative Language API when the selected model starts with gemini
-    - hermes: Hermes CLI, usually backed by Codex gpt-5.5 on this machine
+    - hermes: Hermes CLI, usually backed by Codex gpt-5.6-sol on this machine
     """
     env_provider = get_env_var("TEXT_PROVIDER", "").strip()
     if env_provider:
@@ -207,7 +207,7 @@ def get_hermes_model() -> str:
     env_model = get_env_var("HERMES_TEXT_MODEL", "").strip()
     if env_model:
         return env_model
-    return str(load_config().get("hermes_model", "gpt-5.5")).strip() or "gpt-5.5"
+    return str(load_config().get("hermes_model", "gpt-5.6-sol")).strip() or "gpt-5.6-sol"
 
 
 def get_hermes_provider() -> str:
