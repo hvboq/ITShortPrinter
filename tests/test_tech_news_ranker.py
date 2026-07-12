@@ -9,6 +9,57 @@ if str(SRC_DIR) not in sys.path:
 
 
 class TechNewsRankerTests(unittest.TestCase):
+    def test_engagement_evidence_bonus_requires_relevant_concrete_evidence(self):
+        from news.ranker import score_article
+
+        industry = score_article({
+            "title": "정부, AI용 엔비디아 GPU 9,704장에 1조원 투자",
+            "source_tier": "news_secondary",
+            "raw_excerpt": "HBM 반도체 공급망 확보를 위한 구매 발주가 확정됐다.",
+        })
+        consumer = score_article({
+            "title": "갤럭시, 20만원 낮춘 가격 대신 BOE 부품 선택",
+            "source_tier": "news_secondary",
+            "raw_excerpt": "삼성 부품과 가격 중 소비자 선택이 갈릴 수 있다.",
+        })
+        generic_number = score_article({
+            "title": "Chair 전시 행사 2026 참가 안내",
+            "source_tier": "news_secondary",
+            "raw_excerpt": "부스 12개를 둘러보는 일반 행사 소식이다.",
+        })
+        advert = score_article({
+            "title": "광고: AI GPU 50% 할인 쿠폰",
+            "source_tier": "tech_secondary",
+            "raw_excerpt": "sponsored deal coupon 안내입니다.",
+        })
+
+        self.assertGreater(industry["engagement_evidence_bonus"], 0)
+        self.assertGreater(consumer["engagement_evidence_bonus"], 0)
+        self.assertEqual(generic_number["engagement_evidence_bonus"], 0)
+        self.assertEqual(advert["engagement_evidence_bonus"], 0)
+        self.assertLessEqual(industry["engagement_evidence_bonus"], 14)
+        self.assertEqual(
+            industry["score_breakdown"]["engagement_evidence_bonus"],
+            industry["engagement_evidence_bonus"],
+        )
+
+    def test_verified_technology_success_gets_more_evidence_than_a_rumor(self):
+        from news.ranker import score_article
+
+        success = score_article({
+            "title": "전기항공기 첫 유인 비행 130km 성공",
+            "source_tier": "news_secondary",
+            "raw_excerpt": "실증 시험을 완료하고 실제 비행에 성공했다.",
+        })
+        rumor = score_article({
+            "title": "유출: 전기항공기 130km 비행 가능성",
+            "source_tier": "rumor_leak",
+            "raw_excerpt": "확인되지 않은 루머가 성공을 주장한다.",
+        })
+
+        self.assertGreater(success["engagement_evidence_bonus"], rumor["engagement_evidence_bonus"])
+        self.assertLessEqual(rumor["engagement_evidence_bonus"], 3)
+
     def test_launched_popular_official_chipset_news_scores_highest(self):
         from news.ranker import rank_articles
 

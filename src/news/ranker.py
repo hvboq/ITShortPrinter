@@ -195,6 +195,41 @@ LOW_RETENTION_ADVICE_TERMS = [
     "should you buy", "worth buying", "wait for", "is it worth", "does it matter",
 ]
 
+# Added 2026-06-30 from IT한 하루 28-day channel performance review:
+# "quirky/over-tech" stories (iFixit teardown, robot ETF, foldable leak, price-bubble
+# analysis) ranked in TOP 1-7 even though they aren't flagship Samsung/Apple news.
+# Boost these in ranking so the auto-pipeline surfaces them more often.
+QUIRKY_OVERTECH_TERMS = [
+    # Teardown / dissection
+    "teardown", "disassembled", "disassembly", "disassemble", "taken apart", "ifxit", "ifixit",
+    "i fix it", "deconstructed", "분해", "분해기", "해부", "해체", "뜯어봤", "뜯어보",
+    # Quirky / surprising hardware / niche product
+    "robot etf", "robot ETF", "로봇 ETF", "로봇 etf",
+    "foldable leak", "leaked photo", "leaked image", "leaked render",
+    "폴더블 유출", "폴더블", "유출 사진", "유출 이미지", "유출 렌더", "유출",
+    "가격 거품", "거품", "price bubble",
+    # Unexpected / oddball tech
+    "unexpected", "quirky", "weird", "strange", "odd", "unusual", "hidden", "secret",
+    "수상한", "이상한", "의외", "숨겨진", "몰랐던", "비밀",
+    # Niche / fun
+    "compact camera", "팬톤 카메라", "전기항공기", "evtol", "eVTOL", "trump phone",
+    "trumpphone", "트럼프폰", "키즈폰", "태블릿 키즈", "키즈 워치",
+]
+
+# Narrow signals learned from channel response; a bare number never qualifies.
+ENGAGEMENT_INDUSTRY_TERMS = [
+    "인공지능", "gpu", "hbm", "semiconductor", "반도체", "supply chain", "공급망",
+    "투자", "investment", "발주", "contract", "계약", "정부", "government", "대기업",
+]
+ENGAGEMENT_SUCCESS_TERMS = [
+    "성공", "successful", "succeeds", "완료", "completed", "실증", "상용화", "commercialized",
+    "첫 비행", "first flight", "전기항공기", "evtol",
+]
+ENGAGEMENT_CONSUMER_CHOICE_TERMS = [
+    "가격", "price", "부품", "component", "브랜드", "brand", "대신", "versus", " vs ",
+    "선택", "choice", "경쟁", "competition", "비교", "compare",
+]
+
 ROOT_DIR = Path(__file__).resolve().parents[2]
 PERFORMANCE_WEIGHTS_PATH = ROOT_DIR / "data" / "topic_performance_weights.json"
 
@@ -407,6 +442,59 @@ def game_news_penalty(text: str) -> int:
     if _contains_any(text, HIGH_PERFORMANCE_INDUSTRY_TERMS) or _contains_any(text, ["gpu", "rtx", "radeon", "graphics", "그래픽카드"]):
         return 8
     return 18
+
+
+def quirky_overtech_bonus(text: str, event_type: str) -> int:
+    """Boost quirky/over-tech stories (iFixit teardowns, foldable leaks, robot ETF,
+    price-bubble analysis, niche hardware). Added 2026-06-30 after channel review
+    showed these rank TOP 1-7 disproportionately vs flagship Samsung/Apple news.
+
+    Capped so a single story doesn't dominate the entire queue.
+    """
+    text = text.lower() if text else ""
+    if not _contains_any(text, QUIRKY_OVERTECH_TERMS):
+        return 0
+    bonus = 8
+    # Teardowns are particularly high-retention on the channel (TOP 7 confirmed).
+    if _contains_any(text, ["teardown", "disassembled", "disassembly", "ifixit", "분해", "해부", "해체"]):
+        bonus += 6
+    # Leaks/renders also over-perform (TOP 5: 995회 foldable leak).
+    if _contains_any(text, ["leak", "leaked", "render", "유출"]):
+        bonus += 4
+    # ETF / market-structure quirk (TOP 1: 1.3천회 robot ETF).
+    if _contains_any(text, ["etf", "etf"]):
+        bonus += 4
+    return min(bonus, 18)
+
+
+def engagement_evidence_bonus(text: str, event_type: str, source_tier: str) -> tuple[int, list[str]]:
+    """Capped, auditable boost for concrete evidence in proven channel topics."""
+    if _contains_any(text, ["광고", "sponsored", "coupon", "쿠폰"]):
+        return 0, []
+    has_quantity = re.search(
+        r"\d[\d,.]*\s*(?:%|퍼센트|만원|원|달러|억원|조원|대|장|개|km|킬로미터|배|명|건|w|kw|mw|gw)",
+        text,
+        re.IGNORECASE,
+    ) is not None
+    if not has_quantity:
+        return 0, []
+    reasons: list[str] = []
+    bonus = 0
+    has_ai_term = re.search(r"(?<![a-z0-9])ai(?![a-z0-9])", text) is not None
+    if has_ai_term or _contains_any(text, ENGAGEMENT_INDUSTRY_TERMS):
+        bonus += 7
+        reasons.append("quantified_ai_chip_supply_or_investment")
+    if _contains_any(text, ENGAGEMENT_SUCCESS_TERMS):
+        bonus += 7
+        reasons.append("verified_technology_success")
+    if _contains_any(text, ENGAGEMENT_CONSUMER_CHOICE_TERMS):
+        bonus += 6
+        reasons.append("quantified_consumer_choice")
+    bonus = min(bonus, 14)
+    if event_type == "rumor_leak" or source_tier == "rumor_leak":
+        bonus = min(bonus, 3)
+        reasons = [f"unverified:{reason}" for reason in reasons]
+    return bonus, reasons
 
 
 def scope_drift_penalty(text: str, event_type: str) -> int:
@@ -647,6 +735,8 @@ def score_article(article: dict) -> dict:
     learned_bonus = learned_performance_weight_bonus(bucket, audience_fit, angle)
     retention_penalty = low_retention_format_penalty(text)
     enterprise_penalty = enterprise_product_penalty(text, event_type, technologies)
+    quirky_bonus = quirky_overtech_bonus(text, event_type)
+    evidence_bonus, evidence_reasons = engagement_evidence_bonus(text, event_type, source_tier)
 
     llm_score = min(100, source_score + event_score + keyword_score - noise_penalty)
     launch_priority_bonus = LAUNCH_PRIORITY_BONUS.get(event_type, 0)
@@ -665,6 +755,8 @@ def score_article(article: dict) -> dict:
                 + audience_score
                 + strategic_score
                 + learned_bonus
+                + quirky_bonus
+                + evidence_bonus
                 - scope_penalty
                 - geeknews_penalty
                 - retention_penalty
@@ -711,12 +803,24 @@ def score_article(article: dict) -> dict:
             "enterprise_product_penalty": enterprise_penalty,
             "entertainment_culture_penalty": entertainment_penalty,
             "game_news_penalty": game_penalty,
+            "quirky_overtech_bonus": quirky_bonus,
+            "engagement_evidence_bonus": evidence_bonus,
+            "engagement_evidence_reasons": evidence_reasons,
             "scope_drift_penalty": scope_penalty,
             "geeknews_developer_community_penalty": geeknews_penalty,
             "llm_score": llm_score,
             "shorts_score": shorts_score,
             "alert_allowed": alert_allowed,
             "rumor_status": "rumor" if event_type == "rumor_leak" else "confirmed",
+            "score_breakdown": {
+                "llm_score": llm_score,
+                "launch_priority_bonus": launch_priority_bonus,
+                "performance_signal_bonus": adaptive_bonus,
+                "engagement_evidence_bonus": evidence_bonus,
+                "quirky_overtech_bonus": quirky_bonus,
+                "penalties": scope_penalty + geeknews_penalty + retention_penalty
+                + enterprise_penalty + entertainment_penalty + game_penalty,
+            },
         }
     )
     return scored
