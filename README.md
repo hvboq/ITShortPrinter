@@ -72,6 +72,36 @@ Optional features may need extra setup:
 
 Run these commands from the repository root.
 
+### mise (recommended)
+
+Install [mise](https://mise.jdx.dev/getting-started.html), then run:
+
+```bash
+mise trust
+mise install
+mise run setup
+```
+
+`mise` installs the required Python 3.12 runtime, creates and activates the
+project's `venv`, and delegates the remaining setup to the appropriate Windows
+or Linux/macOS bootstrap script. The setup creates local `config.json` and
+`.env` files when they are missing; add real credentials only to those ignored
+files.
+
+After setup, common workflows no longer require manually activating `venv`:
+
+```bash
+mise run app
+mise run preflight
+mise run test
+mise run fetch-news
+mise run make-short
+mise run generate-top5
+```
+
+Run `mise tasks` to see every available command. `mise run deps` updates only
+the Python packages without changing local configuration.
+
 ### Windows PowerShell
 
 ```powershell

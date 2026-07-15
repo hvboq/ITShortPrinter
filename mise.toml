@@ -1,0 +1,48 @@
+min_version = "2024.9.5"
+
+[tools]
+python = "3.12"
+
+[env]
+# Keep the existing project convention while making the virtual environment
+# available automatically to `mise run` and activated shells.
+_.python.venv = { path = "venv", create = true }
+PYTHONUTF8 = "1"
+PYTHONIOENCODING = "utf-8"
+
+[tasks.setup]
+description = "Create local config, install Python dependencies, and run preflight"
+run = "bash scripts/setup_local.sh"
+run_windows = "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/setup_local_windows.ps1"
+
+[tasks.deps]
+description = "Install or update Python dependencies"
+run = [
+  "python -m pip install --upgrade pip setuptools wheel",
+  "python -m pip install -r requirements.txt",
+]
+
+[tasks.app]
+description = "Start the interactive CLI"
+run = "python src/main.py"
+
+[tasks.preflight]
+description = "Check local providers and configuration"
+run = "python scripts/preflight_local.py"
+
+[tasks.test]
+description = "Run the unit test suite"
+alias = "t"
+run = "python -m unittest discover -s tests"
+
+[tasks.fetch-news]
+description = "Fetch and rank tech-news candidates"
+run = "python scripts/fetch_tech_news.py"
+
+[tasks.make-short]
+description = "Generate one Short from ranked or cached news"
+run = "python scripts/make_news_short.py"
+
+[tasks.generate-top5]
+description = "Generate a batch of five Shorts"
+run = "python scripts/generate_top5_shorts.py"
