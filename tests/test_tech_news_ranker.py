@@ -1,4 +1,6 @@
+import json
 import sys
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -9,6 +11,52 @@ if str(SRC_DIR) not in sys.path:
 
 
 class TechNewsRankerTests(unittest.TestCase):
+    def test_runtime_topic_multiplier_is_merged_as_bounded_bonus(self):
+        from news.ranker import learned_performance_weight_bonus, load_performance_weights
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            base = Path(temp_dir) / "base.json"
+            runtime = Path(temp_dir) / "runtime.json"
+            base.write_text(json.dumps({"topic_buckets": {"pc_chip_device": 5}}), encoding="utf-8")
+            runtime.write_text(json.dumps({"runtime_weights": {"pc_chip_device": 1.15}}), encoding="utf-8")
+
+            weights = load_performance_weights(base, runtime)
+
+        self.assertEqual(weights["topic_buckets"]["pc_chip_device"], 5)
+        self.assertEqual(weights["runtime_topic_bonuses"]["pc_chip_device"], 3)
+        self.assertEqual(
+            learned_performance_weight_bonus("pc_chip_device", "consumer", {}, weights),
+            8,
+        )
+
+    def test_strategy_priority_bonus_is_capped_and_applied_once_in_product_ranking(self):
+        from news.ranker import score_article
+
+        semiconductor = score_article({
+            "title": "SK하이닉스 HBM4 10만장 양산·출하, AI GPU 공급망 확대",
+            "source_tier": "news_secondary",
+            "raw_excerpt": "구체적인 반도체 부품 공급 계약과 대량 생산이 시작됐다.",
+        })
+        consumer_choice = score_article({
+            "title": "갤럭시 S27, 20만원 가격 인하와 BOE OLED 부품 선택",
+            "source_tier": "news_secondary",
+            "raw_excerpt": "소비자가 가격과 디스플레이 부품을 비교할 수 있다.",
+        })
+        generic = score_article({
+            "title": "기업 기술 전략 간담회 개최",
+            "source_tier": "news_secondary",
+            "raw_excerpt": "일반적인 시장 전망을 발표했다.",
+        })
+
+        self.assertGreater(semiconductor["strategy_priority_bonus"], 0)
+        self.assertGreater(consumer_choice["strategy_priority_bonus"], 0)
+        self.assertEqual(generic["strategy_priority_bonus"], 0)
+        self.assertLessEqual(semiconductor["strategy_priority_bonus"], 12)
+        self.assertEqual(
+            semiconductor["score_breakdown"]["strategy_priority_bonus"],
+            semiconductor["strategy_priority_bonus"],
+        )
+
     def test_engagement_evidence_bonus_requires_relevant_concrete_evidence(self):
         from news.ranker import score_article
 
@@ -476,6 +524,7 @@ class TechNewsRankerTests(unittest.TestCase):
         )
 
         self.assertEqual(hardware["audience_fit"], "consumer")
+        self.assertEqual(hardware["topic_bucket"], "smartphone_foldable")
         self.assertGreaterEqual(hardware["strategic_importance_score"], 8)
         self.assertIn(hardware["shorts_angle"]["angle_type"], {"launch_impact", "market_competition", "price_value_shift"})
         self.assertEqual(ai_service["audience_fit"], "consumer")
@@ -483,6 +532,23 @@ class TechNewsRankerTests(unittest.TestCase):
         self.assertEqual(ai_service["shorts_angle"]["angle_type"], "consumer_ai_model_shift")
         self.assertEqual(developer["audience_fit"], "developer")
         self.assertLess(developer["audience_fit_score"], 0)
+
+    def test_foldable_phone_precedes_display_technology_bucket(self):
+        from news.ranker import score_article
+
+        foldable = score_article({
+            "title": "Samsung launches Galaxy Z Fold 8 foldable smartphone",
+            "source_tier": "news_secondary",
+            "raw_excerpt": "The phone uses a brighter OLED display.",
+        })
+        component = score_article({
+            "title": "Samsung Display begins Galaxy S27 OLED panel supply",
+            "source_tier": "news_secondary",
+            "raw_excerpt": "The display component shipment enters mass production.",
+        })
+
+        self.assertEqual(foldable["topic_bucket"], "smartphone_foldable")
+        self.assertEqual(component["topic_bucket"], "pc_chip_device")
 
     def test_portfolio_selection_diversifies_top5_buckets(self):
         from news.ranker import rank_articles, select_portfolio_articles

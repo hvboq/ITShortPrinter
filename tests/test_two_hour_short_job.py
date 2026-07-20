@@ -5,6 +5,7 @@ import importlib.util
 import json
 import sqlite3
 import tempfile
+import time
 import unittest
 from pathlib import Path
 from unittest.mock import patch
@@ -22,6 +23,50 @@ def load_job_module():
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module
+
+
+def create_archive_db(path: Path, articles: list[dict]) -> None:
+    con = sqlite3.connect(path)
+    con.execute(
+        """
+        CREATE TABLE articles (
+            id TEXT PRIMARY KEY,
+            payload_json TEXT,
+            title TEXT,
+            url TEXT,
+            canonical_url TEXT,
+            source_name TEXT,
+            shorts_score INTEGER,
+            event_type TEXT,
+            topic_bucket TEXT,
+            published_at TEXT,
+            fetched_at TEXT,
+            archived_at TEXT,
+            shorts_video_status TEXT
+        )
+        """
+    )
+    for article in articles:
+        con.execute(
+            "INSERT INTO articles VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            (
+                article["id"],
+                json.dumps(article, ensure_ascii=False),
+                article["title"],
+                article["url"],
+                article.get("canonical_url", article["url"]),
+                article.get("source_name", "archive_source"),
+                article.get("shorts_score", 80),
+                article.get("event_type", "component_tech"),
+                article.get("topic_bucket", "ai_infra"),
+                "2026-06-09T00:00:00Z",
+                "2026-06-09T00:00:00Z",
+                "2026-06-09T00:00:00Z",
+                "not_generated",
+            ),
+        )
+    con.commit()
+    con.close()
 
 
 class TwoHourShortJobTests(unittest.TestCase):
@@ -156,6 +201,72 @@ class TwoHourShortJobTests(unittest.TestCase):
         self.assertFalse(job.matches_requested_topic(rumored, "product_launch"))
         self.assertTrue(job.matches_requested_topic(preorder, "product_launch"))
 
+    def test_product_gate_requires_it_product_and_concrete_commercial_evidence(self) -> None:
+        job = load_job_module()
+        non_product_announcement = {
+            "title": "삼성전자, 새로운 AI 비전과 조직 전략 발표",
+            "raw_excerpt": "회사가 미래 기술 로드맵을 공개했다.",
+            "event_type": "product_launch",
+        }
+        event_launch = {
+            "title": "테크 콘퍼런스 2026 공식 출범",
+            "raw_excerpt": "새 행사가 오늘 시작됐다.",
+            "event_type": "product_launch",
+        }
+        real_shipment = {
+            "title": "AMD Ryzen 9900X3D CPU 출하 시작",
+            "raw_excerpt": "새 프로세서 제품이 소매점에 공급되고 다음 주 판매된다.",
+            "event_type": "component_tech",
+        }
+
+        self.assertFalse(job.matches_requested_topic(non_product_announcement, "product_launch"))
+        self.assertFalse(job.matches_requested_topic(event_launch, "product_launch"))
+        self.assertTrue(job.matches_requested_topic(real_shipment, "product_launch"))
+
+    def test_product_gate_allows_real_hbm_mass_production_despite_investment_wording(self) -> None:
+        job = load_job_module()
+        hbm_product = {
+            "title": "SK하이닉스, HBM4 신제품 양산 시작",
+            "raw_excerpt": "1조원 투자 이후 차세대 HBM 반도체의 대량 생산과 고객 출하를 개시했다.",
+            "event_type": "component_tech",
+        }
+
+        self.assertTrue(job.matches_requested_topic(hbm_product, "product_launch"))
+
+    def test_product_gate_blocks_non_product_release_artifacts(self) -> None:
+        job = load_job_module()
+        blocked = [
+            "NVIDIA releases RTX 5090 Game Ready driver",
+            "Samsung releases Galaxy S26 firmware update",
+            "AMD releases Ryzen 9 9900X3D benchmark results",
+            "Intel releases CPU vulnerability report",
+            "NVIDIA publishes RTX security advisory release",
+            "Galaxy Z Fold 8 review released",
+            "Galaxy S26 durability test released",
+            "RTX 5090 test released",
+        ]
+        for title in blocked:
+            with self.subTest(title=title):
+                self.assertFalse(job.matches_requested_topic(
+                    {"title": title, "event_type": "product_launch"},
+                    "product_launch",
+                ))
+
+    def test_product_gate_still_allows_genuine_hardware_and_mass_production(self) -> None:
+        job = load_job_module()
+        allowed = [
+            "NVIDIA launches RTX 5090 graphics card",
+            "Samsung launches Galaxy Z Fold 8 smartphone",
+            "AMD launches Ryzen 9 9900X3D CPU",
+            "SK Hynix starts HBM4 mass production",
+        ]
+        for title in allowed:
+            with self.subTest(title=title):
+                self.assertTrue(job.matches_requested_topic(
+                    {"title": title, "event_type": "product_launch"},
+                    "product_launch",
+                ))
+
     def test_select_next_article_can_limit_candidates_to_product_launch_topic(self) -> None:
         job = load_job_module()
         articles = [
@@ -284,6 +395,63 @@ class TwoHourShortJobTests(unittest.TestCase):
 
         self.assertEqual(selected["url"], "https://example.com/archive-gpu")
         self.assertEqual(selected["selection_source"], "archive_fallback")
+
+    def test_archive_fallback_rejects_recent_korean_semantic_hbm4_duplicate(self) -> None:
+        job = load_job_module()
+        with tempfile.TemporaryDirectory() as tmpdir:
+            db_path = Path(tmpdir) / "archive.sqlite3"
+            create_archive_db(db_path, [
+                {
+                    "id": "semantic-duplicate",
+                    "title": "삼성전자, 엔비디아용 HBM4 양산 시작",
+                    "url": "https://archive.example.com/samsung-hbm4-new",
+                    "shorts_score": 99,
+                },
+                {
+                    "id": "unused",
+                    "title": "인텔, 새 서버용 CPU 출하 시작",
+                    "url": "https://archive.example.com/intel-server-cpu",
+                    "shorts_score": 80,
+                },
+            ])
+            history = [{
+                "article_title": "삼성, NVIDIA 공급 HBM4 대량 생산 개시",
+                "article_url": "https://history.example.com/different-hbm4-story",
+                "uploaded_at_unix": time.time() - 60,
+            }]
+
+            with patch.object(job, "ARCHIVE_DB", db_path):
+                candidates = job._archive_fallback_candidates(10, "", set(), set(), history)
+
+        self.assertEqual([item["id"] for item in candidates], ["unused"])
+
+    def test_archive_fallback_rejects_canonical_url_with_tracking_parameters(self) -> None:
+        job = load_job_module()
+        with tempfile.TemporaryDirectory() as tmpdir:
+            db_path = Path(tmpdir) / "archive.sqlite3"
+            create_archive_db(db_path, [
+                {
+                    "id": "tracked-url-duplicate",
+                    "title": "Archive title differs from upload title",
+                    "url": "https://news.example.com/hardware?id=42&utm_source=archive&fbclid=tracking",
+                    "shorts_score": 99,
+                },
+                {
+                    "id": "unused",
+                    "title": "퀄컴, 차세대 노트북 칩 공개",
+                    "url": "https://news.example.com/qualcomm-laptop-chip",
+                    "shorts_score": 80,
+                },
+            ])
+            history = [{
+                "article_title": "Previously uploaded hardware story",
+                "article_url": "https://www.news.example.com/hardware?utm_medium=social&id=42",
+            }]
+
+            with patch.object(job, "ARCHIVE_DB", db_path):
+                candidates = job._archive_fallback_candidates(10, "", set(), set(), history)
+
+        self.assertEqual([item["id"] for item in candidates], ["unused"])
 
     def test_release_lock_does_not_remove_new_owner_lock(self) -> None:
         job = load_job_module()

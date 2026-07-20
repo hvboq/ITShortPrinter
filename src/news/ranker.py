@@ -229,9 +229,15 @@ ENGAGEMENT_CONSUMER_CHOICE_TERMS = [
     "가격", "price", "부품", "component", "브랜드", "brand", "대신", "versus", " vs ",
     "선택", "choice", "경쟁", "competition", "비교", "compare",
 ]
+STRATEGY_CONCRETE_TERMS = [
+    "mass production", "production starts", "shipment", "shipping", "supply contract",
+    "purchase order", "contract", "supplier", "price cut", "sale starts", "preorder",
+    "양산", "대량 생산", "출하", "공급 계약", "수주", "발주", "가격 인하", "판매 시작", "사전예약",
+]
 
 ROOT_DIR = Path(__file__).resolve().parents[2]
 PERFORMANCE_WEIGHTS_PATH = ROOT_DIR / "data" / "topic_performance_weights.json"
+PERFORMANCE_RUNTIME_WEIGHTS_PATH = ROOT_DIR / "data" / "youtube_weekly_feedback.json"
 
 
 def _text(article: dict) -> str:
@@ -497,6 +503,22 @@ def engagement_evidence_bonus(text: str, event_type: str, source_tier: str) -> t
     return bonus, reasons
 
 
+def strategy_priority_bonus(text: str) -> int:
+    """Single capped policy boost shared by advanced and product news paths."""
+    is_industry = _contains_any(text, HIGH_PERFORMANCE_INDUSTRY_TERMS)
+    is_concrete = _contains_any(text, STRATEGY_CONCRETE_TERMS)
+    if is_industry and is_concrete:
+        return 12
+    has_price = _contains_any(text, ["price", "가격", "할인", "원", "달러"])
+    has_parts_or_choice = _contains_any(
+        text,
+        ["component", "parts", "supplier", "choice", "compare", "competition", "부품", "공급사", "선택", "비교", "경쟁"],
+    )
+    if has_price and has_parts_or_choice:
+        return 8
+    return 0
+
+
 def scope_drift_penalty(text: str, event_type: str) -> int:
     if _contains_any(text, AVOID_TOPIC_TERMS):
         return 30
@@ -630,23 +652,44 @@ def topic_bucket(text: str, technologies: list[str], angle: dict | None = None) 
         return "ai_service_model"
     if any(t in technologies for t in ("keyboard_mouse", "audio_wearables", "wearable", "bluetooth", "wifi")):
         return "peripheral_wearable_audio"
+    is_display_component_supply = "display" in technologies and _contains_any(
+        text,
+        ["panel supply", "display supply", "oled supply", "panel shipment", "display component",
+         "패널 공급", "디스플레이 공급", "oled 공급", "패널 출하", "디스플레이 부품"],
+    )
+    if _contains_any(text, PERFORMANCE_TOPIC_TERMS) and not is_display_component_supply:
+        return "smartphone_foldable"
     if any(t in technologies for t in ("cpu", "gpu", "chipset", "pc_laptop", "display")):
         return "pc_chip_device"
-    if _contains_any(text, PERFORMANCE_TOPIC_TERMS):
-        return "smartphone_foldable"
     if technologies:
         return "hardware_device"
     return "general_it"
 
 
-def load_performance_weights(path: Path = PERFORMANCE_WEIGHTS_PATH) -> dict:
-    if not path.exists():
-        return {}
+def load_performance_weights(
+    path: Path = PERFORMANCE_WEIGHTS_PATH,
+    runtime_path: Path = PERFORMANCE_RUNTIME_WEIGHTS_PATH,
+) -> dict:
+    data: dict = {}
     try:
-        data = json.loads(path.read_text(encoding="utf-8"))
-        return data if isinstance(data, dict) else {}
+        if path.exists():
+            loaded = json.loads(path.read_text(encoding="utf-8"))
+            if isinstance(loaded, dict):
+                data = loaded
     except Exception:
-        return {}
+        data = {}
+    try:
+        runtime = json.loads(runtime_path.read_text(encoding="utf-8")) if runtime_path.exists() else {}
+        multipliers = runtime.get("runtime_weights", {}) if isinstance(runtime, dict) else {}
+        if isinstance(multipliers, dict):
+            data["runtime_topic_bonuses"] = {
+                str(bucket): max(-3, min(3, int(round((float(multiplier) - 1.0) * 20))))
+                for bucket, multiplier in multipliers.items()
+                if isinstance(multiplier, (int, float))
+            }
+    except (OSError, ValueError, TypeError, json.JSONDecodeError):
+        pass
+    return data
 
 
 def learned_performance_weight_bonus(bucket: str, audience_fit: str, angle: dict, weights: dict | None = None) -> int:
@@ -656,6 +699,7 @@ def learned_performance_weight_bonus(bucket: str, audience_fit: str, angle: dict
     bonus = 0
     for section, key in (
         ("topic_buckets", bucket),
+        ("runtime_topic_bonuses", bucket),
         ("audience_fit", audience_fit),
         ("angles", angle.get("angle_type", "")),
     ):
@@ -737,6 +781,7 @@ def score_article(article: dict) -> dict:
     enterprise_penalty = enterprise_product_penalty(text, event_type, technologies)
     quirky_bonus = quirky_overtech_bonus(text, event_type)
     evidence_bonus, evidence_reasons = engagement_evidence_bonus(text, event_type, source_tier)
+    policy_bonus = strategy_priority_bonus(text)
 
     llm_score = min(100, source_score + event_score + keyword_score - noise_penalty)
     launch_priority_bonus = LAUNCH_PRIORITY_BONUS.get(event_type, 0)
@@ -757,6 +802,7 @@ def score_article(article: dict) -> dict:
                 + learned_bonus
                 + quirky_bonus
                 + evidence_bonus
+                + policy_bonus
                 - scope_penalty
                 - geeknews_penalty
                 - retention_penalty
@@ -806,6 +852,7 @@ def score_article(article: dict) -> dict:
             "quirky_overtech_bonus": quirky_bonus,
             "engagement_evidence_bonus": evidence_bonus,
             "engagement_evidence_reasons": evidence_reasons,
+            "strategy_priority_bonus": policy_bonus,
             "scope_drift_penalty": scope_penalty,
             "geeknews_developer_community_penalty": geeknews_penalty,
             "llm_score": llm_score,
@@ -817,6 +864,7 @@ def score_article(article: dict) -> dict:
                 "launch_priority_bonus": launch_priority_bonus,
                 "performance_signal_bonus": adaptive_bonus,
                 "engagement_evidence_bonus": evidence_bonus,
+                "strategy_priority_bonus": policy_bonus,
                 "quirky_overtech_bonus": quirky_bonus,
                 "penalties": scope_penalty + geeknews_penalty + retention_penalty
                 + enterprise_penalty + entertainment_penalty + game_penalty,

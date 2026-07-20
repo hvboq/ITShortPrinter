@@ -673,6 +673,30 @@ def get_youtube_channel_config() -> dict:
     }
 
 
+def get_youtube_feedback_config() -> dict:
+    """Return conservative bounds for 48-hour performance feedback weights."""
+    raw = load_config().get("youtube_feedback", {})
+    if not isinstance(raw, dict):
+        raw = {}
+
+    def number(key: str, default: float) -> float:
+        try:
+            return float(raw.get(key, default))
+        except (TypeError, ValueError):
+            return default
+
+    minimum_sample = max(2, min(100, int(number("minimum_sample", 5))))
+    shrinkage = max(1.0, min(100.0, number("shrinkage", 10.0)))
+    min_weight = max(0.5, min(1.0, number("min_weight", 0.85)))
+    max_weight = max(1.0, min(1.5, number("max_weight", 1.15)))
+    return {
+        "minimum_sample": minimum_sample,
+        "shrinkage": shrinkage,
+        "min_weight": min_weight,
+        "max_weight": max_weight,
+    }
+
+
 def get_post_bridge_config() -> dict:
     """
     Gets the Post Bridge configuration with safe defaults.

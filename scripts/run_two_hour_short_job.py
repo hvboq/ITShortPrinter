@@ -16,14 +16,13 @@ if str(SRC) not in sys.path:
 
 from news.collector import collect_product_launch_news, collect_ranked_news  # noqa: E402
 from news.duplicate_guard import (  # noqa: E402
-    article_title,
+    active_history_items,
     article_urls,
     duplicate_reason,
     file_lock,
     load_history,
 )
 from news.ranker import (  # noqa: E402
-    LAUNCH_TERMS,
     _contains_any,
     classify_event,
     select_portfolio_articles,
@@ -96,75 +95,49 @@ def matches_requested_topic(article: Any, topic: str) -> bool:
 
     text = _article_text(article)
     event_type = _article_event_type(article)
-    has_launch_term = _contains_any(text, LAUNCH_TERMS)
-    has_blocked_term = _contains_any(
-        text,
-        [
-            "rumor",
-            "leak",
-            "루머",
-            "유출",
-            "concept",
-            "prototype",
-            "특허",
-            "가능성",
-            "출시설",
-            "rumored",
-            "expected release",
-            "what to expect",
-            "delay",
-            "delayed",
-            "postpone",
-            "postponed",
-            "연기",
-            "지연",
-            "무기한",
-            "기관 대상",
-            "장외",
-            "예측시장",
-            "트레이딩",
-            "데스크",
-            "거래소",
-            "거래",
-            "투자",
-            "펀드",
-            "증권",
-            "금융",
-            "신용카드",
-            "체크카드",
-            "제휴 카드",
-            "카드사",
-            "삼성카드",
-            "롯데카드",
-            "현대카드",
-            "결제금액",
-            "홈쇼핑",
-            "credit card",
-            "payment card",
-            "card issuer",
-            "stock",
-            "trading",
-            "prediction market",
-            "exchange",
-            "fund",
-        ],
-    )
-    if has_blocked_term:
+    product_terms = [
+        "smartphone", "phone", "iphone", "galaxy", "laptop", "notebook", "pc", "computer",
+        "keyboard", "mouse", "headset", "headphone", "earbuds", "wearable", "smartwatch",
+        "display", "oled", "gpu", "graphics card", "cpu", "processor", "chip", "chipset",
+        "semiconductor", "hbm", "memory", "ssd", "server", "router", "camera", "device",
+        "스마트폰", "아이폰", "갤럭시", "노트북", "컴퓨터", "키보드", "마우스", "헤드셋",
+        "헤드폰", "이어폰", "웨어러블", "스마트워치", "디스플레이", "그래픽카드", "그래픽 카드",
+        "프로세서", "반도체", "메모리", "서버", "공유기", "카메라", "제품",
+        "ryzen", "radeon", "rtx", "geforce", "snapdragon", "exynos",
+    ]
+    evidence_terms = [
+        "launch", "launches", "launched", "unveil", "unveils", "unveiled", "released",
+        "preorder", "pre-order", "sale starts", "available now", "ships", "shipping", "shipment",
+        "mass production", "production starts", "출시", "공개", "사전예약", "사전 예약", "예약 판매",
+        "판매 시작", "판매 개시", "출하", "배송 시작", "양산", "대량 생산",
+    ]
+    blocked_terms = [
+        "rumor", "leak", "루머", "유출", "concept", "prototype", "특허", "가능성", "출시설",
+        "rumored", "expected release", "what to expect", "delay", "delayed", "postpone", "postponed",
+        "연기", "지연", "무기한", "기관 대상", "장외", "예측시장", "트레이딩", "데스크", "거래소",
+        "거래", "펀드", "증권", "금융", "신용카드", "체크카드", "제휴 카드", "카드사", "삼성카드",
+        "롯데카드", "현대카드", "결제금액", "홈쇼핑", "credit card", "payment card", "card issuer",
+        "stock", "trading", "prediction market", "exchange", "fund",
+        "driver", "firmware", "benchmark", "vulnerability", "security advisory", "advisory",
+        "review", "hands-on", "test result", "durability test", "stress test", "report",
+        "드라이버", "펌웨어", "벤치마크", "취약점", "보안 권고", "권고문", "리뷰", "사용기",
+        "테스트 결과", "내구성 테스트", "성능 테스트", "보고서",
+    ]
+    padded_text = f" {text} "
+    if _contains_any(text, blocked_terms) or any(
+        f" {word} " in padded_text for word in ("test", "tests")
+    ):
         return False
-    if event_type == "product_launch":
+    if not _contains_any(text, product_terms) or not _contains_any(text, evidence_terms):
+        return False
+
+    allowed_events = {"product_launch", "price_availability"}
+    if event_type in allowed_events:
         return True
-    # Certification rows can still be launchable when the title is about a real
-    # preorder/sale opening; the ranker may classify them as certification first.
-    if event_type == "certification" and has_launch_term and _contains_any(text, ["사전예약", "사전 예약", "예약", "preorder", "pre-order", "판매"]):
-        return True
-    # Launch/release stories with price or availability words are often scored as
-    # price_availability because the ranker checks those terms first. They still
-    # satisfy the 13:00 slot requirement when a launch term is present.
-    if event_type == "price_availability" and has_launch_term:
-        return True
-    # Do not accept broad software-update/market/component stories just because
-    # their titles contain "release/출시"; the 13:00 slot is for product launches
-    # and new device/service availability.
+    if event_type == "certification":
+        return _contains_any(text, ["사전예약", "사전 예약", "예약 판매", "preorder", "pre-order", "판매"])
+    if event_type == "component_tech":
+        return _contains_any(text, ["ships", "shipping", "shipment", "mass production", "production starts", "출하", "양산", "대량 생산"])
     return False
 
 
@@ -186,15 +159,11 @@ def _collect_articles_for_topic(limit: int, topic: str) -> list[Any]:
 
 def _history_keys(history: list[dict]) -> tuple[set[str], set[str]]:
     used_urls: set[str] = set()
-    used_titles: set[str] = set()
-    for item in history:
-        if not isinstance(item, dict):
-            continue
+    # URL reuse is permanent. Title/topic reuse is time-bounded and is therefore
+    # handled exclusively by duplicate_reason rather than a permanent title set.
+    for item in active_history_items(history):
         used_urls.update(article_urls(item))
-        title = article_title(item)
-        if title:
-            used_titles.add(title)
-    return used_urls, used_titles
+    return used_urls, set()
 
 
 def _row_to_archive_article(row: sqlite3.Row) -> dict[str, Any]:
@@ -228,9 +197,19 @@ def _is_dedicated_product_launch_archive_source(article: dict[str, Any]) -> bool
     )
 
 
-def _archive_fallback_candidates(limit: int, topic: str, used_urls: set[str], used_titles: set[str]) -> list[dict[str, Any]]:
+def _archive_fallback_candidates(
+    limit: int,
+    topic: str,
+    used_urls: set[str],
+    used_titles: set[str],
+    history: list[dict[str, Any]] | None = None,
+) -> list[dict[str, Any]]:
     if not ARCHIVE_DB.exists():
         return []
+
+    canonical_used_urls = set(used_urls)
+    for used_url in used_urls:
+        canonical_used_urls.update(article_urls({"url": used_url}))
 
     con = sqlite3.connect(ARCHIVE_DB)
     con.row_factory = sqlite3.Row
@@ -255,8 +234,9 @@ def _archive_fallback_candidates(limit: int, topic: str, used_urls: set[str], us
     for row in rows:
         article = _row_to_archive_article(row)
         title = _norm(_article_get(article, "title", ""))
-        url = _norm(_article_get(article, "url", ""))
-        if (url and url in used_urls) or (title and title in used_titles):
+        if duplicate_reason(article, history or []):
+            continue
+        if article_urls(article) & canonical_used_urls or (title and title in used_titles):
             continue
         if not topic and _is_dedicated_product_launch_archive_source(article):
             continue
@@ -285,8 +265,8 @@ def select_next_article(limit: int, topic: str = "") -> Any:
         if reason == "url" or (url and url in used_urls):
             print(f"SKIP_ALREADY_UPLOADED|match=url|title={_article_get(article, 'title', '')}", flush=True)
             continue
-        if reason == "title_similarity" or (title and title in used_titles):
-            print(f"SKIP_ALREADY_UPLOADED|match=title_similarity|title={_article_get(article, 'title', '')}", flush=True)
+        if reason in {"title_similarity", "semantic_topic"} or (title and title in used_titles):
+            print(f"SKIP_ALREADY_UPLOADED|match={reason or 'title_similarity'}|title={_article_get(article, 'title', '')}", flush=True)
             continue
         if topic and not matches_requested_topic(article, topic):
             print(
@@ -302,7 +282,9 @@ def select_next_article(limit: int, topic: str = "") -> Any:
     if selected:
         return selected[0]
 
-    fallback_candidates = _archive_fallback_candidates(limit, topic, used_urls, used_titles)
+    fallback_candidates = _archive_fallback_candidates(
+        limit, topic, used_urls, used_titles, history
+    )
     fallback_selected = select_portfolio_articles(fallback_candidates, count=1)
     if fallback_selected:
         article = fallback_selected[0]

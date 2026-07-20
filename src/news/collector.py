@@ -13,7 +13,7 @@ from .archive import (
     prune_daily_top_articles,
 )
 from .fetcher import fetch_rss
-from .ranker import rank_articles
+from .ranker import rank_articles, strategy_priority_bonus
 from .sources import PHASE_1_SOURCES, PRODUCT_LAUNCH_SOURCES
 
 
@@ -25,6 +25,12 @@ def _advanced_article_to_ranked_dict(article) -> dict:
         else dict(article)
     )
     summary = item.get("summary") or item.get("content", "")
+    base_score = item.get("score", 0)
+    try:
+        base_score = int(round(float(base_score)))
+    except (TypeError, ValueError):
+        base_score = 0
+    policy_bonus = strategy_priority_bonus(f"{item.get('title', '')} {summary}".lower())
     return {
         "source_id": item.get("source", ""),
         "source_name": item.get("source", ""),
@@ -41,8 +47,9 @@ def _advanced_article_to_ranked_dict(article) -> dict:
         "technologies": [],
         "event_type": "",
         "confidence": "",
-        "shorts_score": item.get("score", 0),
-        "alert_allowed": item.get("score", 0) >= 75,
+        "shorts_score": min(100, base_score + policy_bonus),
+        "strategy_priority_bonus": policy_bonus,
+        "alert_allowed": min(100, base_score + policy_bonus) >= 75,
         "rumor_status": "confirmed",
         "advanced_scores": {
             "public_interest": item.get("public_interest_score", 0),
