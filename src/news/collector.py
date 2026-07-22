@@ -13,7 +13,14 @@ from .archive import (
     prune_daily_top_articles,
 )
 from .fetcher import fetch_rss
-from .ranker import rank_articles, strategy_priority_bonus
+from .ranker import (
+    SOURCE_CONFIDENCE,
+    classify_event,
+    is_channel_scope_excluded,
+    is_speculative,
+    rank_articles,
+    strategy_priority_bonus,
+)
 from .sources import PHASE_1_SOURCES, PRODUCT_LAUNCH_SOURCES
 
 
@@ -30,27 +37,40 @@ def _advanced_article_to_ranked_dict(article) -> dict:
         base_score = int(round(float(base_score)))
     except (TypeError, ValueError):
         base_score = 0
-    policy_bonus = strategy_priority_bonus(f"{item.get('title', '')} {summary}".lower())
+    text = f"{item.get('title', '')} {summary}".lower()
+    source_tier = item.get("source_tier") or "news_secondary"
+    event_type = item.get("event_type") or classify_event({**item, "source_tier": source_tier}, text)
+    classification_record = {**item, "source_tier": source_tier, "event_type": event_type}
+    speculative = is_speculative(classification_record)
+    rumor_status = item.get("rumor_status") or ("rumor" if speculative else "confirmed")
+    policy_bonus = strategy_priority_bonus(text, classification_record)
+    shorts_score = min(100, base_score + policy_bonus)
+    if speculative:
+        shorts_score = min(shorts_score, 74)
+    confidence = item.get("confidence")
+    if confidence is None:
+        confidence = SOURCE_CONFIDENCE.get(source_tier, 0.55)
     return {
-        "source_id": item.get("source", ""),
-        "source_name": item.get("source", ""),
-        "source_tier": "news_secondary",
-        "language": "unknown",
+        "source_id": item.get("source_id") or item.get("source", ""),
+        "source_name": item.get("source_name") or item.get("source", ""),
+        "source_tier": source_tier,
+        "language": item.get("language", "unknown"),
         "title": item.get("title", ""),
         "url": item.get("url", ""),
-        "canonical_url": item.get("url", ""),
+        "canonical_url": item.get("canonical_url") or item.get("url", ""),
         "published_at": item.get("published_at"),
-        "fetched_at": "",
-        "author": None,
+        "fetched_at": item.get("fetched_at", ""),
+        "author": item.get("author"),
         "raw_excerpt": summary,
-        "brands": [],
-        "technologies": [],
-        "event_type": "",
-        "confidence": "",
-        "shorts_score": min(100, base_score + policy_bonus),
+        "brands": item.get("brands", []),
+        "technologies": item.get("technologies", []),
+        "event_type": event_type,
+        "confidence": confidence,
+        "audience_fit": item.get("audience_fit", ""),
+        "shorts_score": shorts_score,
         "strategy_priority_bonus": policy_bonus,
-        "alert_allowed": min(100, base_score + policy_bonus) >= 75,
-        "rumor_status": "confirmed",
+        "alert_allowed": shorts_score >= 75 and not speculative,
+        "rumor_status": rumor_status,
         "advanced_scores": {
             "public_interest": item.get("public_interest_score", 0),
             "realism": item.get("realism_score", 0),
@@ -61,6 +81,62 @@ def _advanced_article_to_ranked_dict(article) -> dict:
     }
 
 
+def _filter_channel_scope(articles) -> list:
+    """Apply the hard off-channel gate before archive or live selection."""
+    return [
+        article for article in articles
+        if not is_channel_scope_excluded(article if isinstance(article, dict) else asdict(article))
+    ]
+
+
+def rank_product_slot_articles(articles: list[dict]) -> list[dict]:
+    """Apply audience ordering only to the dedicated 13:00 product slot."""
+    def priority(item: dict) -> tuple[int, int]:
+        text = f"{item.get('title', '')} {item.get('raw_excerpt', '')} {item.get('summary', '')}".lower()
+        rumor_status = str(item.get("rumor_status") or "").lower()
+        event_type = str(item.get("event_type") or "").lower()
+        source_tier = str(item.get("source_tier") or "").lower()
+        speculative = is_speculative(item)
+        affirmative = (
+            rumor_status in {"confirmed", "verified", "official"}
+            or event_type in {"official_release", "product_launch", "price_availability", "production_start"}
+            or any(term in text for term in ("official", "confirmed", "verified", "공식", "확정", "확인"))
+        )
+        confirmed = (
+            affirmative
+            and rumor_status not in {"rumor", "unconfirmed", "speculative", "leak"}
+            and event_type != "rumor_leak"
+            and source_tier != "rumor_leak"
+            and not speculative
+        )
+        strategic = confirmed and strategy_priority_bonus(text, item) > 0 and any(
+            term in text for term in ("semiconductor", "반도체", "hbm", "gpu")
+        ) and any(
+            term in text for term in ("mass production", "production starts", "shipment", "양산", "대량 생산", "출하")
+        )
+        if strategic:
+            band = 0
+        else:
+            audience = str(item.get("audience_fit") or "").lower()
+            explicit_bands = {"consumer": 1, "prosumer": 2, "business_user": 4, "developer": 4, "researcher": 4}
+            if audience in explicit_bands:
+                band = explicit_bands[audience]
+            elif any(term in text for term in ("consumer", "일반 사용자", "소비자용", "개인 사용자")):
+                band = 1
+            elif any(term in text for term in ("prosumer", "프로슈머", "creator", "크리에이터", "전문가용")):
+                band = 2
+            elif any(term in text for term in (
+                "b2b", "enterprise", "industrial", "business", "commercial", "corporate",
+                "business customers", "기업용", "산업용", "물류", "업무용", "법인", "기업 고객", "사무용",
+            )):
+                band = 4
+            else:
+                band = 3
+        return band, -int(item.get("shorts_score", 0) or 0)
+
+    return sorted(articles, key=priority)
+
+
 def _collect_ranked_news_from_pipeline(limit: int) -> list[dict]:
     config = get_news_pipeline_config()
     if not config.get("enabled", False):
@@ -69,10 +145,10 @@ def _collect_ranked_news_from_pipeline(limit: int) -> list[dict]:
     from news_pipeline import NewsPipeline
 
     pipeline = NewsPipeline(config=config)
-    return [
+    return _filter_channel_scope([
         _advanced_article_to_ranked_dict(article)
         for article in pipeline.collect_ranked_articles()[:limit]
-    ]
+    ])
 
 
 def collect_ranked_news(sources: list[dict] | None = None, limit: int = 20) -> list[dict]:
@@ -132,7 +208,8 @@ def collect_ranked_news(sources: list[dict] | None = None, limit: int = 20) -> l
                 run_urls.add(url_key)
             if title_key:
                 run_titles.add(title_key)
-            all_articles.append(article)
+            if not is_channel_scope_excluded(article):
+                all_articles.append(article)
 
     if duplicate_count:
         print(f"NEWS_ARCHIVE_SKIPPED_DUPLICATES={duplicate_count}")
@@ -156,7 +233,9 @@ def collect_product_launch_news(limit: int = 20) -> list[dict]:
     launch-focused RSS/search feeds so the product cron job does not spend its
     candidate budget on market/context/component stories.
     """
-    return collect_ranked_news(sources=PRODUCT_LAUNCH_SOURCES, limit=limit)
+    return rank_product_slot_articles(
+        _filter_channel_scope(collect_ranked_news(sources=PRODUCT_LAUNCH_SOURCES, limit=limit))
+    )
 
 
 def get_top_news(sources: list[dict] | None = None) -> dict | None:

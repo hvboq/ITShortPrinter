@@ -11,6 +11,148 @@ if str(SRC_DIR) not in sys.path:
 
 
 class TechNewsRankerTests(unittest.TestCase):
+    def test_speculative_schedule_is_rumor_capped_and_below_official_foldable_change(self):
+        from news.ranker import rank_articles, score_article
+
+        speculative = {
+            "title": "HBM4 GPU 양산 일정 전망",
+            "raw_excerpt": "업계 관측으로 9월 출하 예상",
+            "source_tier": "news_secondary",
+        }
+        official = {
+            "title": "삼성 폴더블 힌지 변경 공식 발표",
+            "raw_excerpt": "두께를 1mm 줄이고 8월 판매를 시작한다고 확정했다.",
+            "source_tier": "official_primary",
+        }
+
+        scored = score_article(speculative)
+        ranked = rank_articles([speculative, official])
+
+        self.assertEqual(scored["event_type"], "rumor_leak")
+        self.assertEqual(scored["rumor_status"], "rumor")
+        self.assertLessEqual(scored["shorts_score"], 74)
+        self.assertEqual(scored["strategy_priority_bonus"], 0)
+        self.assertEqual(ranked[0]["title"], official["title"])
+
+    def test_central_speculative_terms_cover_korean_and_english_findings(self):
+        from news.ranker import is_speculative
+
+        for term in ("예상", "전망", "관측", "추정", "미확인", "가능성", "expected", "reportedly", "could", "might", "forecast"):
+            with self.subTest(term=term):
+                self.assertTrue(is_speculative(f"HBM4 shipment {term}"))
+
+    def test_hard_scope_exclusion_normalizes_separators_and_financial_card_phrases(self):
+        from news.ranker import is_channel_scope_excluded
+
+        excluded_titles = (
+            "카드 결제 혜택 비교 앱 출시",
+            "AI 카드 결제 서비스 공개",
+            "credit-card rewards app launches",
+            "real-estate AI platform launches",
+        )
+        for title in excluded_titles:
+            with self.subTest(title=title):
+                self.assertTrue(is_channel_scope_excluded({"title": title}))
+
+        allowed_titles = (
+            "RTX 5090 그래픽카드 출시",
+            "RTX 5090 그래픽 카드 출시",
+            "microSD 메모리 카드 공개",
+            "AI accelerator card and network card launch",
+            "삼성전자 주식회사 GPU 신제품 출시",
+        )
+        for title in allowed_titles:
+            with self.subTest(title=title):
+                self.assertFalse(is_channel_scope_excluded({"title": title}))
+
+    def test_hard_scope_exclusion_covers_observed_off_channel_lexical_forms(self):
+        from news.ranker import is_channel_scope_excluded
+
+        excluded_titles = [
+            "삼성카드 갤럭시 카드 출시",
+            "롯데홈쇼핑 제휴카드 출시",
+            "AI 주식 투자 서비스 공개",
+            "증권 거래 플랫폼 출시",
+            "서울 아파트 AI 분양",
+            "서울 아파트 신규 AI 단지 분양",
+            "푸드테크 배달로봇 출시",
+            "식품 제조 AI 로봇 공개",
+            "외식업 디지털 주문 서비스",
+            "디저트 추천 앱 출시",
+            "김밥 조리 로봇 출시",
+            "robot ETF trading platform",
+            "bond investing service launches",
+            "AI investment platform launches",
+            "AI 투자 플랫폼 공개",
+            "채권 투자 앱 공개",
+            "AI 트레이딩 자산운용 서비스",
+            "mobile payment card issuance rewards",
+            "모바일 결제 카드 발급 혜택",
+            "오피스텔 AI 분양 플랫폼",
+            "상가 재개발 서비스",
+            "property development realtor platform",
+        ]
+        for title in excluded_titles:
+            with self.subTest(title=title):
+                self.assertTrue(is_channel_scope_excluded({"title": title}))
+
+    def test_hard_scope_exclusion_preserves_card_tokens_in_it_hardware(self):
+        from news.ranker import is_channel_scope_excluded
+
+        hardware_titles = [
+            "RTX 5090 그래픽카드 출시",
+            "RTX 5090 그래픽 카드 출시",
+            "microSD 메모리 카드 공개",
+            "AI 가속 카드와 네트워크 카드 신제품",
+            "그래픽카드사 신형 GPU 출시",
+        ]
+        for title in hardware_titles:
+            with self.subTest(title=title):
+                self.assertFalse(is_channel_scope_excluded({"title": title}))
+
+    def test_hard_scope_exclusions_do_not_block_it_card_hardware(self):
+        from news.ranker import is_channel_scope_excluded, rank_articles
+
+        excluded = [
+            {"title": "신용카드 혜택 비교와 대출 금리", "raw_excerpt": "개인 금융 상품"},
+            {"title": "서울 아파트 부동산 분양", "raw_excerpt": "주택 매매"},
+            {"title": "새로운 파스타 맛집 레시피", "raw_excerpt": "음식과 요리"},
+        ]
+        hardware = [
+            {"title": "RTX 5090 그래픽카드 출하 시작", "raw_excerpt": "GPU 신제품"},
+            {"title": "삼성 microSD 메모리 카드 출시", "raw_excerpt": "저장장치 신제품"},
+        ]
+
+        self.assertTrue(all(is_channel_scope_excluded(item) for item in excluded))
+        self.assertTrue(all(not is_channel_scope_excluded(item) for item in hardware))
+        self.assertEqual(len(rank_articles(excluded + hardware)), 2)
+
+    def test_confirmed_schedules_and_concrete_foldable_changes_beat_rumors_auditably(self):
+        from news.ranker import rank_articles, score_article
+
+        confirmed = {
+            "title": "SK하이닉스 HBM4 양산 9월 시작, 엔비디아 GPU 출하 일정 확정",
+            "raw_excerpt": "반도체 생산과 고객 출하 일정이 공식 확인됐다.",
+            "source_tier": "news_secondary",
+        }
+        foldable = {
+            "title": "삼성 폴더블 두께 1mm 줄이고 8월 판매 시작",
+            "raw_excerpt": "실물 힌지 변경과 가격, 출시 일정이 공개됐다.",
+            "source_tier": "news_secondary",
+        }
+        rumor = {
+            "title": "아이폰 폴더블 유출 렌더, 내년 출시 가능성 반복 제기",
+            "raw_excerpt": "확인되지 않은 루머와 예상 사양이다.",
+            "source_tier": "rumor_leak",
+        }
+
+        ranked = rank_articles([rumor, foldable, confirmed])
+        rumor_scored = score_article(rumor)
+        self.assertEqual({item["title"] for item in ranked[:2]}, {confirmed["title"], foldable["title"]})
+        self.assertEqual(ranked[-1]["title"], rumor["title"])
+        self.assertEqual(rumor_scored["quirky_overtech_bonus"], 0)
+        self.assertGreater(rumor_scored["rumor_penalty"], 0)
+        self.assertEqual(rumor_scored["score_breakdown"]["rumor_penalty"], rumor_scored["rumor_penalty"])
     def test_runtime_topic_multiplier_is_merged_as_bounded_bonus(self):
         from news.ranker import learned_performance_weight_bonus, load_performance_weights
 
@@ -622,6 +764,46 @@ class TechNewsRankerTests(unittest.TestCase):
         self.assertIn("Viewer Payoff:", prompt)
         self.assertIn("첫 3초 훅", prompt)
         self.assertIn("왜 중요", prompt)
+
+    def test_corporate_suffix_is_not_mistaken_for_stock_news(self):
+        from news.ranker import is_channel_scope_excluded
+
+        self.assertFalse(is_channel_scope_excluded({"title": "삼성전자 주식회사 GPU 신제품 출시"}))
+        for title in ("삼성전자 주식 투자", "삼성전자 주식 시세", "삼성전자 주가", "삼성전자 증권 리포트"):
+            with self.subTest(title=title):
+                self.assertTrue(is_channel_scope_excluded({"title": title}))
+
+    def test_rumor_score_is_ceiling_bounded_and_selection_cannot_beat_confirmed_concrete_news(self):
+        from news.ranker import rank_articles, score_article, select_portfolio_articles
+
+        rumor = {
+            "title": "아이폰 폴더블 GPU HBM 100만원 가격 유출 출시 가능성",
+            "raw_excerpt": "유명 브랜드의 차세대 폴더블 사양과 공급 계약이라는 확인되지 않은 루머",
+            "source_tier": "rumor_leak",
+        }
+        confirmed = {
+            "title": "삼성 폴더블 두께 1mm 축소",
+            "raw_excerpt": "실물 힌지 변경과 8월 판매 시작 일정이 공식 확인됐다.",
+            "source_tier": "news_secondary",
+        }
+        rumor_scored = score_article(rumor)
+        ranked = rank_articles([rumor, confirmed])
+        self.assertLessEqual(rumor_scored["shorts_score"], 74)
+        self.assertEqual(ranked[0]["title"], confirmed["title"])
+        self.assertEqual(select_portfolio_articles(ranked, count=1)[0]["title"], confirmed["title"])
+
+    def test_portfolio_keeps_all_confirmed_concrete_priority_items_ahead_of_rumor(self):
+        from news.ranker import rank_articles, select_portfolio_articles
+
+        articles = [
+            {"title": "아이폰 GPU HBM 폴더블 가격 유출", "raw_excerpt": "확인되지 않은 출시 가능성 루머", "source_tier": "rumor_leak"},
+            {"title": "SK하이닉스 HBM4 GPU 양산 시작", "raw_excerpt": "반도체 생산과 고객 출하 일정 공식 확정", "source_tier": "news_secondary"},
+            {"title": "삼성 폴더블 두께 1mm 축소", "raw_excerpt": "힌지 변경과 판매 시작 일정 공식 확인", "source_tier": "news_secondary"},
+        ]
+        selected = select_portfolio_articles(rank_articles(articles), count=3)
+        self.assertNotEqual(selected[0]["rumor_status"], "rumor")
+        self.assertNotEqual(selected[1]["rumor_status"], "rumor")
+        self.assertEqual(selected[2]["rumor_status"], "rumor")
 
 
 if __name__ == "__main__":

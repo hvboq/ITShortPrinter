@@ -29,7 +29,7 @@ def clean_generated_korean_text(text: str) -> str:
     return text
 
 
-def clean_metadata_title(title: str) -> str:
+def clean_metadata_title(title: str, source_text: str | list | tuple = "") -> str:
     """Normalize title text used for upload metadata and persistent overlays."""
     title = clean_generated_korean_text(title)
     title = re.sub(r"^[\"'“”‘’]+|[\"'“”‘’]+$", "", title).strip()
@@ -45,6 +45,37 @@ def clean_metadata_title(title: str) -> str:
     }
     for old, new in ad_replacements.items():
         title = title.replace(old, new)
+    if isinstance(source_text, (list, tuple)):
+        sources = [str(value or "").casefold() for value in source_text]
+    else:
+        sources = [str(source_text or "").casefold()]
+
+    def remove_unsupported_digit_hashtag(match: re.Match) -> str:
+        candidate = match.group(1)
+        digit_chars = [char for char in candidate if char.isdigit()]
+        if not digit_chars:
+            return match.group(0)
+        if any(char not in "0123456789" for char in digit_chars):
+            grounded = any(
+                re.search(rf"(?<!\w){re.escape(candidate.casefold())}(?!\w)", source)
+                for source in sources
+            )
+            return match.group(0) if grounded else ""
+        tag = re.sub(r"[^0-9a-z가-힣]", "", candidate.casefold())
+        separator = r"[^0-9a-z가-힣]*"
+        source_pattern = separator.join(re.escape(char) for char in tag)
+        grounded = any(
+            re.search(
+                rf"(?<![0-9a-z가-힣]){source_pattern}(?![0-9a-z가-힣])",
+                source,
+                flags=re.IGNORECASE,
+            )
+            for source in sources
+        )
+        return match.group(0) if grounded else ""
+
+    title = re.sub(r"#([^\s#]+)", remove_unsupported_digit_hashtag, title)
+    title = re.sub(r"\s+", " ", title).strip()
     title = re.sub(r"\s+([!?])", r"\1", title)
     if len(title) > 92:
         title = title[:91].rstrip() + "…"

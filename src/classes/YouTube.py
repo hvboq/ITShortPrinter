@@ -13,7 +13,7 @@ from config import *
 from status import *
 from uuid import uuid4
 from constants import *
-from news.shorts import build_shorts_script_prompt
+from news.shorts import build_shorts_script_prompt, choice_question_policy, remove_forbidden_choice_questions
 from .youtube_content import clean_generated_korean_text
 from .youtube_content import clean_metadata_title
 from .youtube_content import normalize_news_article
@@ -258,7 +258,11 @@ class YouTube:
 
     def _clean_metadata_title(self, title: str) -> str:
         """Normalize title text used for upload metadata and the persistent top overlay."""
-        return clean_metadata_title(title)
+        article = getattr(self, "news_article", None)
+        source_values = (
+            article.get("title"), article.get("raw_excerpt"), article.get("excerpt"), article.get("summary")
+        ) if article is not None else (getattr(self, "subject", ""),)
+        return clean_metadata_title(title, source_text=source_values)
 
     def _extract_json_object(self, text: str) -> dict:
         """Best-effort extraction for local LLM JSON review output."""
@@ -308,15 +312,16 @@ class YouTube:
     def review_script_with_local_ollama(self, script: str) -> str:
         """Review a generated Shorts script once with local Ollama and return the approved/revised script."""
         if not get_script_review_enabled():
-            return script
+            return remove_forbidden_choice_questions(script, self.news_article)
 
         article_context = ""
         if self.news_article:
             article_context = f"""
 기사 제목: {self.news_article.get('title', '')}
-기사 요약: {self.news_article.get('excerpt') or self.news_article.get('summary') or ''}
+기사 요약: {self.news_article.get('raw_excerpt') or self.news_article.get('excerpt') or self.news_article.get('summary') or ''}
 출처명: {self.news_article.get('source_name') or self.news_article.get('source') or ''}
 이벤트 유형: {self.news_article.get('event_type', '')}
+선택 질문 정책: {choice_question_policy(self.news_article)}
 """.strip()
 
         review_prompt = f"""
@@ -333,6 +338,7 @@ class YouTube:
 - AI/소프트웨어/개발 이슈 중심으로 새지 않고, 소비자 기기/하드웨어 관점에 맞다.
 - 마지막은 자연스러운 핵심 정리 또는 구독 CTA로 끝난다.
 - 불필요한 라벨, 제목, 마크다운 없이 실제 나레이션 문장만 유지한다.
+- 위 기사의 선택 질문 정책을 그대로 지키고, 금지 기사에는 댓글/선택 질문을 새로 만들지 않는다.
 
 {article_context}
 
@@ -353,13 +359,14 @@ class YouTube:
         except Exception as exc:
             if get_verbose():
                 warning(f"Script review failed; using original script: {exc}")
-            return script
+            return remove_forbidden_choice_questions(script, self.news_article)
 
         review_data = self._extract_json_object(review_response)
         revised = review_data.get("revised_script", "") if review_data else ""
         final_script = self._clean_generated_korean_text(re.sub(r"\*", "", revised or script))
         if not final_script:
             final_script = script
+        final_script = remove_forbidden_choice_questions(final_script, self.news_article)
         self._persist_script_review(script, review_response, review_data, final_script)
 
         score = review_data.get("score") if review_data else None
@@ -430,8 +437,13 @@ class YouTube:
         Returns:
             metadata (dict): The generated metadata.
         """
+        article = getattr(self, "news_article", None)
+        metadata_source_values = (
+            article.get("title"), article.get("raw_excerpt"), article.get("excerpt"), article.get("summary")
+        ) if article is not None else (getattr(self, "subject", ""),)
+        metadata_source_text = " ".join(str(value or "") for value in metadata_source_values).strip()
         title = self._clean_metadata_title(self.generate_response(
-            f"다음 주제에 맞는 유튜브 쇼츠 제목을 반드시 한국어로만 작성해. 제품명과 브랜드명은 뉴스 이해에 꼭 필요할 때만 최소한으로 유지하되, S27 Pro, S26 FE, A37 5G, RTX 5090, M5처럼 숫자·영문이 섞인 공식 모델명은 한글로 풀어 쓰거나 번역하지 말고 원문 표기를 그대로 유지해. 공식 광고처럼 보이는 과장 표현(국내 최초!, 역대급, 폭발, 극대화하는 법, 새로운 기준)은 피해서 중립적인 뉴스 제목으로 써. 첫 3초 시청자를 잡아끄는 Hook(질문·충격 수치·반전 제시)을 자연스럽게 녹여내고, 해시태그 3~4개를 포함하되 모델 코드형(예: #S27, #HBM, #아이폰18)을 1~2개 반드시 섞어 줘. 전체 110자 미만으로 제한해. 깨진 문자, 한글 자모만 남은 글자, 이모지, 따옴표를 쓰지 마. 제목만 반환해. 주제: {self.subject}"
+            f"다음 주제에 맞는 유튜브 쇼츠 제목을 반드시 한국어로만 작성해. 제품명과 브랜드명은 뉴스 이해에 꼭 필요할 때만 최소한으로 유지하되, S27 Pro, S26 FE, A37 5G, RTX 5090, M5처럼 숫자·영문이 섞인 공식 모델명은 한글로 풀어 쓰거나 번역하지 말고 원문 표기를 그대로 유지해. 공식 광고처럼 보이는 과장 표현(국내 최초!, 역대급, 폭발, 극대화하는 법, 새로운 기준)은 피해서 중립적인 뉴스 제목으로 써. 첫 3초 시청자를 잡아끄는 Hook(질문·충격 수치·반전 제시)을 자연스럽게 녹여내고, 해시태그 3~4개를 포함하되 원문 제목이나 요약에 없는 모델명·세대명 또는 모델 코드형 해시태그를 절대 만들지 말고, 원문으로 확인되는 모델 해시태그와 일반 주제 해시태그만 사용해. 전체 110자 미만으로 제한해. 깨진 문자, 한글 자모만 남은 글자, 이모지, 따옴표를 쓰지 마. 제목만 반환해. 원문 제목/요약: {metadata_source_text}"
         ))
 
         if len(title) > 110:

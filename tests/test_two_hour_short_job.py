@@ -70,6 +70,70 @@ def create_archive_db(path: Path, articles: list[dict]) -> None:
 
 
 class TwoHourShortJobTests(unittest.TestCase):
+    def test_product_launch_final_live_selection_uses_product_slot_ordering(self) -> None:
+        job = load_job_module()
+        articles = [
+            {"title": "기업용 ThinkPad AI 노트북 출시", "raw_excerpt": "B2B 기업 고객용 업무 장치", "url": "https://example.com/b2b", "event_type": "product_launch", "shorts_score": 99},
+            {"title": "소비자용 갤럭시 스마트폰 출시", "raw_excerpt": "일반 사용자 제품", "url": "https://example.com/consumer", "event_type": "product_launch", "shorts_score": 65},
+        ]
+        with patch.object(job, "collect_product_launch_news", return_value=articles), patch.object(job, "load_upload_history", return_value=[]):
+            selected = job.select_next_article(10, topic="product_launch")
+
+        self.assertEqual(selected["url"], "https://example.com/consumer")
+
+    def test_product_launch_final_live_selection_keeps_strategic_production_exception_highest(self) -> None:
+        job = load_job_module()
+        articles = [
+            {"title": "소비자용 갤럭시 스마트폰 출시", "raw_excerpt": "일반 사용자 제품", "url": "https://example.com/consumer", "event_type": "product_launch", "shorts_score": 90},
+            {"title": "SK하이닉스 HBM4 양산 시작", "raw_excerpt": "GPU 반도체 생산과 고객 출하 일정 확정", "url": "https://example.com/hbm", "event_type": "component_tech", "shorts_score": 60},
+        ]
+        with patch.object(job, "collect_product_launch_news", return_value=articles), patch.object(job, "load_upload_history", return_value=[]):
+            selected = job.select_next_article(10, topic="product_launch")
+
+        self.assertEqual(selected["url"], "https://example.com/hbm")
+
+    def test_product_launch_final_archive_selection_uses_product_slot_ordering(self) -> None:
+        job = load_job_module()
+        with tempfile.TemporaryDirectory() as tmpdir:
+            db_path = Path(tmpdir) / "archive.sqlite3"
+            create_archive_db(db_path, [
+                {"id": "b2b", "title": "기업용 ThinkPad AI 노트북 출시", "raw_excerpt": "B2B 기업 고객용 업무 장치", "url": "https://example.com/archive-b2b", "event_type": "product_launch", "shorts_score": 99},
+                {"id": "consumer", "title": "소비자용 갤럭시 스마트폰 출시", "raw_excerpt": "일반 사용자 제품", "url": "https://example.com/archive-consumer", "event_type": "product_launch", "shorts_score": 65},
+            ])
+            with patch.object(job, "ARCHIVE_DB", db_path), patch.object(job, "collect_product_launch_news", return_value=[]), patch.object(job, "load_upload_history", return_value=[]):
+                selected = job.select_next_article(10, topic="product_launch")
+
+        self.assertEqual(selected["url"], "https://example.com/archive-consumer")
+
+    def test_general_final_selection_still_uses_normal_score_ordering(self) -> None:
+        job = load_job_module()
+        articles = [
+            {"title": "기업용 키보드 출시", "raw_excerpt": "B2B", "url": "https://example.com/high", "shorts_score": 99},
+            {"title": "소비자용 키보드 출시", "raw_excerpt": "일반 사용자", "url": "https://example.com/low", "shorts_score": 50},
+        ]
+        with patch.object(job, "collect_ranked_news", return_value=articles), patch.object(job, "load_upload_history", return_value=[]):
+            selected = job.select_next_article(10, topic="")
+
+        self.assertEqual(selected["url"], "https://example.com/high")
+
+    def test_live_and_archive_selection_hard_exclude_non_it_verticals(self) -> None:
+        job = load_job_module()
+        live = [
+            {"title": "서울 아파트 부동산 분양", "url": "https://example.com/home", "shorts_score": 100},
+            {"title": "RTX 5090 그래픽카드 출하", "url": "https://example.com/gpu", "shorts_score": 70},
+        ]
+        with patch.object(job, "collect_ranked_news", return_value=live), patch.object(job, "load_upload_history", return_value=[]):
+            self.assertEqual(job.select_next_article(10)["url"], "https://example.com/gpu")
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            db_path = Path(tmpdir) / "archive.sqlite3"
+            create_archive_db(db_path, [
+                {"id": "food", "title": "서울 파스타 맛집 신메뉴", "url": "https://example.com/food", "shorts_score": 100},
+                {"id": "memory", "title": "microSD 메모리 카드 출시", "url": "https://example.com/memory", "shorts_score": 70},
+            ])
+            with patch.object(job, "ARCHIVE_DB", db_path):
+                candidates = job._archive_fallback_candidates(10, "", set(), set(), [])
+        self.assertEqual([item["id"] for item in candidates], ["memory"])
     def test_two_hour_job_entrypoint_exists_and_has_safe_operational_controls(self) -> None:
         source = JOB.read_text(encoding="utf-8")
         tree = ast.parse(source)
@@ -555,6 +619,36 @@ class TwoHourShortJobTests(unittest.TestCase):
                 selected = job.select_next_article(limit=10, topic="")
 
         self.assertEqual(selected["url"], "https://example.com/gpu-supply")
+
+    def test_product_launch_live_and_archive_use_audience_fit_as_primary_band(self) -> None:
+        job = load_job_module()
+        live = [
+            {"title": "일반 노트북 출시", "audience_fit": "consumer", "url": "https://example.com/live-consumer", "event_type": "product_launch", "raw_excerpt": "commercial 디자인", "shorts_score": 1},
+            {"title": "업무용 노트북 출시", "audience_fit": "business_user", "url": "https://example.com/live-business", "event_type": "product_launch", "shorts_score": 99},
+        ]
+        with patch.object(job, "collect_product_launch_news", return_value=live), patch.object(job, "load_upload_history", return_value=[]):
+            self.assertEqual(job.select_next_article(10, "product_launch")["url"], "https://example.com/live-consumer")
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            db_path = Path(tmpdir) / "archive.sqlite3"
+            create_archive_db(db_path, [dict(item, id=f"archive-{index}") for index, item in enumerate(live)])
+            with patch.object(job, "ARCHIVE_DB", db_path), patch.object(job, "collect_product_launch_news", return_value=[]), patch.object(job, "load_upload_history", return_value=[]):
+                selected = job.select_next_article(10, "product_launch")
+        self.assertEqual(selected["url"], "https://example.com/live-consumer")
+
+    def test_archive_fallback_searches_past_fifty_excluded_rows(self) -> None:
+        job = load_job_module()
+        with tempfile.TemporaryDirectory() as tmpdir:
+            db_path = Path(tmpdir) / "archive.sqlite3"
+            excluded = [
+                {"id": f"food-{index}", "title": f"맛집 음식 신메뉴 {index}", "url": f"https://example.com/food-{index}", "shorts_score": 100 - index}
+                for index in range(51)
+            ]
+            valid = {"id": "valid", "title": "GPU 공급망 확대", "url": "https://example.com/valid", "shorts_score": 1}
+            create_archive_db(db_path, excluded + [valid])
+            with patch.object(job, "ARCHIVE_DB", db_path):
+                candidates = job._archive_fallback_candidates(1, "", set(), set(), [])
+        self.assertEqual([item["id"] for item in candidates], ["valid"])
 
 
 if __name__ == "__main__":

@@ -93,7 +93,11 @@ TECHNOLOGIES = {
 LAUNCH_TERMS = ["launch", "launches", "launched", "unveil", "unveils", "unveiled", "announce", "announces", "announced", "release", "released", "preorder", "pre-order", "출시", "출격", "공개", "발표", "사전예약", "사전 예약", "사전 판매", "예약 판매", "판매 시작"]
 PRICE_AVAILABILITY_TERMS = ["availability", "available", "price", "prices", "deal", "deals", "discount", "sale", "price cut", "가격", "판매", "할인"]
 SOFTWARE_UPDATE_TERMS = ["software update", "firmware", "app", "apps", "ios", "ipados", "watchos", "macos", "android update", "one ui", "hyperos", "업데이트", "앱"]
-RUMOR_TERMS = ["rumor", "leak", "leaked", "suggests", "claim", "may", "루머", "유출", "가능성"]
+RUMOR_TERMS = [
+    "rumor", "leak", "leaked", "suggests", "claim", "may", "alleged", "possible",
+    "expected", "reportedly", "could", "might", "forecast",
+    "루머", "유출", "가능성", "예상", "전망", "관측", "추정", "미확인",
+]
 RESEARCH_TERMS = ["research", "study", "prototype", "concept", "begins", "early", "연구", "개념"]
 CERTIFICATION_TERMS = ["certification", "fcc", "bluetooth sig", "wi-fi alliance", "인증", "특허", "patent"]
 NOISE_TERMS = ["coupon", "deal", "discount", "sponsored", "할인", "광고", "earnings", "dividend"]
@@ -131,6 +135,20 @@ FINANCE_FALSE_POSITIVE_TERMS = [
     "credit card", "payment card", "card issuer", "card company", "financial card",
     "신용카드", "체크카드", "제휴 카드", "카드사", "삼성카드", "롯데카드", "현대카드",
     "결제금액", "홈쇼핑", "금융", "여신", "카드 혜택", "할부",
+]
+HARD_EXCLUSION_TERMS = [
+    "finance", "financial services", "personal finance", "banking", "bank loan", "mortgage",
+    "credit card", "debit card", "payment card", "card issuer", "card issuance", "card rewards",
+    "mobile payment", "stock market", "stock trading", "securities trading", "trading platform",
+    "asset management", "investing", "investment platform", "investment service",
+    "etf trading", "etf investing", "bond investing", "bond investment", "insurance",
+    "금융", "금융 상품", "금융상품", "은행", "대출", "금리", "신용카드", "체크카드", "제휴카드", "제휴 카드",
+    "삼성카드", "롯데카드", "현대카드", "카드 결제", "카드 혜택", "카드 발급", "결제 카드",
+    "주식", "주가", "증권", "채권", "투자 서비스", "투자 플랫폼", "투자 앱", "투자 상품", "트레이딩", "자산운용", "할부 금융",
+    "real estate", "home sale", "housing market", "property listing", "property development", "realtor", "mortgage rate",
+    "부동산", "아파트 분양", "주택 매매", "오피스텔", "상가", "재개발", "전세", "월세",
+    "food", "restaurant", "recipe", "food review", "cooking", "맛집", "레시피", "요리", "신메뉴", "음식",
+    "푸드", "식품", "외식", "디저트", "김밥",
 ]
 
 CONSUMER_AI_TERMS = [
@@ -248,6 +266,60 @@ def _contains_any(text: str, terms: Iterable[str]) -> bool:
     return any(term.lower() in text for term in terms)
 
 
+def is_speculative(article_or_text: dict | str, *, allow_structured_confirmation: bool = True) -> bool:
+    """Apply the shared speculation policy to text or a structured article."""
+    article = article_or_text if isinstance(article_or_text, dict) else {}
+    text = _text(article) if article else str(article_or_text or "").lower()
+    status = str(article.get("rumor_status") or "").lower()
+    event_type = str(article.get("event_type") or "").lower()
+    source_tier = str(article.get("source_tier") or "").lower()
+    if (
+        status in {"rumor", "unconfirmed", "speculative", "leak"}
+        or event_type == "rumor_leak"
+        or source_tier == "rumor_leak"
+    ):
+        return True
+
+    english_terms = [term for term in RUMOR_TERMS if term.isascii()]
+    korean_terms = [term for term in RUMOR_TERMS if not term.isascii()]
+    wording_is_speculative = bool(
+        re.search(rf"(?<![a-z0-9])(?:{'|'.join(map(re.escape, english_terms))})(?![a-z0-9])", text)
+        or _contains_any(text, korean_terms)
+    )
+    if not wording_is_speculative:
+        return False
+    truly_affirmative = (
+        allow_structured_confirmation
+        and status in {"confirmed", "verified", "official"}
+        and event_type != "rumor_leak"
+        and source_tier != "rumor_leak"
+    )
+    return not truly_affirmative
+
+
+def is_channel_scope_excluded(article_or_text: dict | str) -> bool:
+    """Hard gate for off-channel verticals; deliberately never matches bare `card`."""
+    if isinstance(article_or_text, dict):
+        text = " ".join(
+            str(article_or_text.get(key, "") or "")
+            for key in ("title", "raw_excerpt", "summary", "content", "description")
+        ).lower()
+    else:
+        text = str(article_or_text or "").lower()
+    # Normalize punctuation into phrase separators before matching so hyphenated
+    # forms cannot bypass the same exclusions as their spaced equivalents.
+    normalized_text = re.sub(r"[^0-9a-z가-힣]+", " ", text).strip()
+    finance_text = normalized_text.replace("주식회사", "")
+    finance_text = re.sub(r"그래픽\s*카드사", "그래픽카드회사", finance_text)
+    if _contains_any(finance_text, HARD_EXCLUSION_TERMS):
+        return True
+    if re.search(r"(?<!그래픽)(?<!메모리)(?<!가속)(?<!네트워크)카드사", finance_text):
+        return True
+    # Real-estate headlines often insert project/technology wording between the
+    # property type and sale term (for example, "아파트 AI 분양").
+    return bool(re.search(r"아파트.{0,40}분양", text, flags=re.DOTALL))
+
+
 def _contains_brand_alias(text: str, term: str) -> bool:
     term = term.lower()
     # Korean aliases and symbol-heavy aliases are safe as substrings; ASCII brand aliases
@@ -267,7 +339,7 @@ def extract_technologies(text: str) -> list[str]:
 
 def classify_event(article: dict, text: str) -> str:
     tier = article.get("source_tier", "news_secondary")
-    if tier == "rumor_leak" or _contains_any(text, RUMOR_TERMS):
+    if tier == "rumor_leak" or is_speculative({**article, "title": text, "raw_excerpt": ""}):
         return "rumor_leak"
     if _contains_any(text, CERTIFICATION_TERMS):
         return "certification"
@@ -458,19 +530,23 @@ def quirky_overtech_bonus(text: str, event_type: str) -> int:
     Capped so a single story doesn't dominate the entire queue.
     """
     text = text.lower() if text else ""
+    if is_speculative({"title": text, "event_type": event_type}):
+        return 0
     if not _contains_any(text, QUIRKY_OVERTECH_TERMS):
         return 0
     bonus = 8
     # Teardowns are particularly high-retention on the channel (TOP 7 confirmed).
     if _contains_any(text, ["teardown", "disassembled", "disassembly", "ifixit", "분해", "해부", "해체"]):
         bonus += 6
-    # Leaks/renders also over-perform (TOP 5: 995회 foldable leak).
-    if _contains_any(text, ["leak", "leaked", "render", "유출"]):
-        bonus += 4
     # ETF / market-structure quirk (TOP 1: 1.3천회 robot ETF).
     if _contains_any(text, ["etf", "etf"]):
         bonus += 4
     return min(bonus, 18)
+
+
+def rumor_penalty(event_type: str, source_tier: str) -> int:
+    """Auditable penalty for any unconfirmed rumor/leak candidate."""
+    return 22 if event_type == "rumor_leak" or source_tier == "rumor_leak" else 0
 
 
 def engagement_evidence_bonus(text: str, event_type: str, source_tier: str) -> tuple[int, list[str]]:
@@ -503,8 +579,10 @@ def engagement_evidence_bonus(text: str, event_type: str, source_tier: str) -> t
     return bonus, reasons
 
 
-def strategy_priority_bonus(text: str) -> int:
+def strategy_priority_bonus(text: str, article: dict | None = None) -> int:
     """Single capped policy boost shared by advanced and product news paths."""
+    if is_speculative(article if article is not None else text):
+        return 0
     is_industry = _contains_any(text, HIGH_PERFORMANCE_INDUSTRY_TERMS)
     is_concrete = _contains_any(text, STRATEGY_CONCRETE_TERMS)
     if is_industry and is_concrete:
@@ -709,9 +787,24 @@ def learned_performance_weight_bonus(bucket: str, audience_fit: str, angle: dict
     return max(-8, min(bonus, 8))
 
 
+def _ranking_key(item: dict) -> tuple[int, int]:
+    """Keep confirmed concrete changes above rumors, even at score saturation."""
+    text = _text(item)
+    is_rumor = is_speculative(item)
+    concrete = _contains_any(text, STRATEGY_CONCRETE_TERMS)
+    strategic_production = concrete and _contains_any(text, ("semiconductor", "반도체", "hbm", "gpu"))
+    concrete_foldable = _contains_any(text, ("foldable", "폴더블", "fold", "힌지")) and _contains_any(
+        text, ("두께", "thickness", "hinge", "힌지", "판매 시작", "sale starts", "출시 일정")
+    )
+    band = 2 if is_rumor else (0 if strategic_production or concrete_foldable else 1)
+    return band, -int(item.get("shorts_score", 0) or 0)
+
+
 def select_portfolio_articles(articles: Iterable[dict], count: int = 5) -> list[dict]:
     """Select a diversified Shorts batch instead of simply taking the top N."""
-    ranked = sorted(articles, key=lambda item: item.get("shorts_score", 0), reverse=True)
+    ranked = sorted(articles, key=_ranking_key)
+    if count == 1:
+        return ranked[:1]
     preferred_buckets = [
         "pc_chip_device",
         "smartphone_foldable",
@@ -780,8 +873,9 @@ def score_article(article: dict) -> dict:
     retention_penalty = low_retention_format_penalty(text)
     enterprise_penalty = enterprise_product_penalty(text, event_type, technologies)
     quirky_bonus = quirky_overtech_bonus(text, event_type)
+    unconfirmed_penalty = rumor_penalty(event_type, source_tier)
     evidence_bonus, evidence_reasons = engagement_evidence_bonus(text, event_type, source_tier)
-    policy_bonus = strategy_priority_bonus(text)
+    policy_bonus = strategy_priority_bonus(text, article)
 
     llm_score = min(100, source_score + event_score + keyword_score - noise_penalty)
     launch_priority_bonus = LAUNCH_PRIORITY_BONUS.get(event_type, 0)
@@ -803,6 +897,7 @@ def score_article(article: dict) -> dict:
                 + quirky_bonus
                 + evidence_bonus
                 + policy_bonus
+                - unconfirmed_penalty
                 - scope_penalty
                 - geeknews_penalty
                 - retention_penalty
@@ -816,6 +911,8 @@ def score_article(article: dict) -> dict:
         shorts_score = min(shorts_score, 72)
     elif enterprise_penalty > 0:
         shorts_score = min(shorts_score, 88)
+    if event_type == "rumor_leak" or source_tier == "rumor_leak":
+        shorts_score = min(shorts_score, 74)
 
     alert_allowed = (
         shorts_score >= 75
@@ -850,6 +947,7 @@ def score_article(article: dict) -> dict:
             "entertainment_culture_penalty": entertainment_penalty,
             "game_news_penalty": game_penalty,
             "quirky_overtech_bonus": quirky_bonus,
+            "rumor_penalty": unconfirmed_penalty,
             "engagement_evidence_bonus": evidence_bonus,
             "engagement_evidence_reasons": evidence_reasons,
             "strategy_priority_bonus": policy_bonus,
@@ -866,8 +964,9 @@ def score_article(article: dict) -> dict:
                 "engagement_evidence_bonus": evidence_bonus,
                 "strategy_priority_bonus": policy_bonus,
                 "quirky_overtech_bonus": quirky_bonus,
+                "rumor_penalty": unconfirmed_penalty,
                 "penalties": scope_penalty + geeknews_penalty + retention_penalty
-                + enterprise_penalty + entertainment_penalty + game_penalty,
+                + enterprise_penalty + entertainment_penalty + game_penalty + unconfirmed_penalty,
             },
         }
     )
@@ -875,4 +974,7 @@ def score_article(article: dict) -> dict:
 
 
 def rank_articles(articles: Iterable[dict]) -> list[dict]:
-    return sorted((score_article(article) for article in articles), key=lambda item: item["shorts_score"], reverse=True)
+    return sorted(
+        (score_article(article) for article in articles if not is_channel_scope_excluded(article)),
+        key=_ranking_key,
+    )

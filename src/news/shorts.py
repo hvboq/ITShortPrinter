@@ -1,5 +1,60 @@
 from __future__ import annotations
 
+import re
+
+
+B2B_CHOICE_TERMS = (
+    "b2b", "industrial", "supply chain", "enterprise", "business", "commercial",
+    "corporate", "business customers", "산업", "공급망", "기업용",
+    "업무용", "법인", "기업 고객", "사무용",
+)
+GENERIC_PRODUCTION_TERMS = ("production", "shipment", "생산", "출하")
+CONSUMER_CHOICE_TERMS = (
+    "compare", "comparison", "versus", "controversy", "choice", "price",
+    "비교", "논쟁", "선택", "가격",
+)
+
+
+def choice_question_forbidden(article: dict) -> bool:
+    text = f"{article.get('title', '')} {article.get('raw_excerpt', '')} {article.get('summary', '')}".lower()
+    if article.get("audience_fit") in {"business_user", "developer", "researcher"}:
+        return True
+    if any(term in text for term in B2B_CHOICE_TERMS):
+        return True
+    consumer_choice = article.get("audience_fit") == "consumer" or any(
+        term in text for term in CONSUMER_CHOICE_TERMS
+    )
+    return not consumer_choice and any(term in text for term in GENERIC_PRODUCTION_TERMS)
+
+
+def choice_question_policy(article: dict) -> str:
+    """Return an explicit per-article rule shared by generation and review."""
+    text = f"{article.get('title', '')} {article.get('raw_excerpt', '')} {article.get('summary', '')}".lower()
+    forbidden = choice_question_forbidden(article)
+    if forbidden:
+        return "B2B·산업·공급망 기사이므로 댓글용 선택 질문을 절대 만들지 않는다."
+    allowed = article.get("audience_fit") == "consumer" or any(
+        term in text for term in CONSUMER_CHOICE_TERMS
+    )
+    if allowed:
+        return "소비자 선택 또는 실제 논쟁·비교 기사이므로 구체적인 선택 질문을 포함한다."
+    return "기사에 실제 선택·논쟁·비교가 없으면 선택 질문을 생략한다."
+
+
+def remove_forbidden_choice_questions(script: str, article: dict | None) -> str:
+    """Deterministically strip forced audience-choice prompts from B2B scripts."""
+    text = str(script or "")
+    if not article or not choice_question_forbidden(article):
+        return text
+    forced_choice = re.compile(
+        r"여러분은|어느\s*(?:쪽|제품|모델|것)|어떤\s*(?:제품|모델|것)|둘\s*중|"
+        r"무엇을\s*선택|댓글|골라|고르|선택하(?:시|실|세요)",
+        flags=re.IGNORECASE,
+    )
+    sentences = re.findall(r"[^.!?。！？]+[.!?。！？]*", text)
+    kept = [sentence.strip() for sentence in sentences if not forced_choice.search(sentence)]
+    return " ".join(kept).strip()
+
 
 def format_article_for_prompt(article: dict) -> str:
     brands = ", ".join(article.get("brands", [])) or "unknown"
@@ -30,6 +85,7 @@ def format_article_for_prompt(article: dict) -> str:
 def build_shorts_script_prompt(article: dict, language: str = "Korean", sentence_length: int = 5) -> str:
     """Builds a Korean news-briefing Shorts prompt from a ranked tech-news article."""
     article_block = format_article_for_prompt(article)
+    question_policy = choice_question_policy(article)
     return f"""
 너는 한국어 최신 IT 뉴스 브리핑 쇼츠 작가다.
 아래 뉴스 하나를 바탕으로 {sentence_length}문장 이내의 30~40초 유튜브 쇼츠 대본을 작성하라.
@@ -48,6 +104,7 @@ def build_shorts_script_prompt(article: dict, language: str = "Korean", sentence
 - 전체 흐름은 사실 → 의미 → 시청자 선택 순서로 구성하고, 중간에는 “그래서 왜 중요하냐면”에 해당하는 맥락을 반드시 한 문장 포함한다.
 - 저장 유도 금지.
 - 시리즈화 금지.
+- 기사별 선택 질문 정책: {question_policy}
 - 댓글 질문은 허용한다. 가격·부품·브랜드처럼 소비자 선택이나 논쟁이 자연스러운 소재에만 구체적인 선택 질문을 쓴다.
 - B2B·산업·공급망 뉴스는 시청자 개인 선택이 없으면 억지 댓글 질문을 만들지 않는다.
 - 일반적인 “구독해 주세요” 대신 “검증된 IT 변화와 선택 기준을 계속 빠르게 전한다”처럼 채널 가치 약속이 담긴 구독 CTA를 쓴다.

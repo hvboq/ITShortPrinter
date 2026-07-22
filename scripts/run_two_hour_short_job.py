@@ -14,7 +14,11 @@ SRC = ROOT / "src"
 if str(SRC) not in sys.path:
     sys.path.insert(0, str(SRC))
 
-from news.collector import collect_product_launch_news, collect_ranked_news  # noqa: E402
+from news.collector import (  # noqa: E402
+    collect_product_launch_news,
+    collect_ranked_news,
+    rank_product_slot_articles,
+)
 from news.duplicate_guard import (  # noqa: E402
     active_history_items,
     article_urls,
@@ -25,6 +29,7 @@ from news.duplicate_guard import (  # noqa: E402
 from news.ranker import (  # noqa: E402
     _contains_any,
     classify_event,
+    is_channel_scope_excluded,
     select_portfolio_articles,
 )
 
@@ -157,6 +162,15 @@ def _collect_articles_for_topic(limit: int, topic: str) -> list[Any]:
     return collect_ranked_news(limit=limit)
 
 
+def _select_final_candidate(candidates: list[dict[str, Any]], topic: str) -> Any | None:
+    """Apply slot-specific ordering at the final decision point."""
+    if _is_product_launch_topic(topic):
+        ordered = rank_product_slot_articles(candidates)
+        return ordered[0] if ordered else None
+    selected = select_portfolio_articles(candidates, count=1)
+    return selected[0] if selected else None
+
+
 def _history_keys(history: list[dict]) -> tuple[set[str], set[str]]:
     used_urls: set[str] = set()
     # URL reuse is permanent. Title/topic reuse is time-bounded and is therefore
@@ -223,9 +237,7 @@ def _archive_fallback_candidates(
             ORDER BY COALESCE(shorts_score, 0) DESC,
                      COALESCE(NULLIF(published_at, ''), fetched_at, archived_at) DESC,
                      id ASC
-            LIMIT ?
-            """,
-            (max(limit, 50),),
+            """
         ).fetchall()
     finally:
         con.close()
@@ -233,6 +245,8 @@ def _archive_fallback_candidates(
     candidates: list[dict[str, Any]] = []
     for row in rows:
         article = _row_to_archive_article(row)
+        if is_channel_scope_excluded(article):
+            continue
         title = _norm(_article_get(article, "title", ""))
         if duplicate_reason(article, history or []):
             continue
@@ -255,6 +269,9 @@ def select_next_article(limit: int, topic: str = "") -> Any:
     candidates = []
     seen = set()
     for article in articles:
+        if is_channel_scope_excluded(_article_to_dict(article)):
+            print(f"SKIP_CHANNEL_SCOPE|title={_article_get(article, 'title', '')}", flush=True)
+            continue
         title = _norm(_article_get(article, "title", ""))
         url = _norm(_article_get(article, "url", ""))
         key = url or title
@@ -278,16 +295,16 @@ def select_next_article(limit: int, topic: str = "") -> Any:
             continue
         candidates.append(article)
 
-    selected = select_portfolio_articles(candidates, count=1)
+    selected = _select_final_candidate(candidates, topic)
     if selected:
-        return selected[0]
+        return selected
 
     fallback_candidates = _archive_fallback_candidates(
         limit, topic, used_urls, used_titles, history
     )
-    fallback_selected = select_portfolio_articles(fallback_candidates, count=1)
+    fallback_selected = _select_final_candidate(fallback_candidates, topic)
     if fallback_selected:
-        article = fallback_selected[0]
+        article = fallback_selected
         print(
             "ARCHIVE_FALLBACK_SELECTED|"
             f"score={_article_get(article, 'shorts_score', '')}|"
