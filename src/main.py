@@ -1,5 +1,6 @@
 import schedule
 import subprocess
+import sys
 
 from art import *
 from cache import *
@@ -227,7 +228,13 @@ def main():
                         )
 
                         cron_script_path = os.path.join(ROOT_DIR, "src", "cron.py")
-                        command = ["python", cron_script_path, "youtube", selected_account['id'], get_active_model()]
+                        command = [
+                            sys.executable,
+                            cron_script_path,
+                            "youtube",
+                            selected_account["id"],
+                            get_active_model() or "",
+                        ]
 
                         def job():
                             subprocess.run(command)
@@ -345,7 +352,13 @@ def main():
                         )
 
                         cron_script_path = os.path.join(ROOT_DIR, "src", "cron.py")
-                        command = ["python", cron_script_path, "twitter", selected_account['id'], get_active_model()]
+                        command = [
+                            sys.executable,
+                            cron_script_path,
+                            "twitter",
+                            selected_account["id"],
+                            get_active_model() or "",
+                        ]
 
                         def job():
                             subprocess.run(command)

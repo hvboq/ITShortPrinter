@@ -11,7 +11,7 @@ if (-not (Test-Path $Python)) {
 }
 
 if (-not $env:SHORTS_JOB_VISIBILITY) {
-    $env:SHORTS_JOB_VISIBILITY = "public"
+    $env:SHORTS_JOB_VISIBILITY = "unlisted"
 }
 
 $LogDir = Join-Path $RepoRoot ".mp\two_hour_job\logs"

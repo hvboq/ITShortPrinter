@@ -12,6 +12,47 @@ if str(SRC_DIR) not in sys.path:
 
 
 class NewsArchiveTests(unittest.TestCase):
+    def test_init_archive_repairs_partial_schema_missing_source_id(self):
+        from news.archive import init_archive
+
+        with tempfile.TemporaryDirectory() as tmp:
+            db_path = Path(tmp) / "archive.sqlite3"
+            con = sqlite3.connect(db_path)
+            try:
+                con.execute(
+                    """
+                    CREATE TABLE articles (
+                        id TEXT PRIMARY KEY,
+                        canonical_url TEXT,
+                        title TEXT NOT NULL,
+                        published_at TEXT,
+                        archived_at TEXT NOT NULL,
+                        shorts_score INTEGER
+                    )
+                    """
+                )
+                con.commit()
+            finally:
+                con.close()
+
+            init_archive(db_path)
+
+            con = sqlite3.connect(db_path)
+            try:
+                columns = {
+                    row[1]
+                    for row in con.execute("PRAGMA table_info(articles)").fetchall()
+                }
+                indexes = {
+                    row[1]
+                    for row in con.execute("PRAGMA index_list(articles)").fetchall()
+                }
+            finally:
+                con.close()
+
+            self.assertIn("source_id", columns)
+            self.assertIn("idx_articles_source_id", indexes)
+
     def test_archive_articles_upserts_summary_and_scores(self):
         from news.archive import archive_articles, recent_articles
         from news.ranker import score_article
@@ -105,6 +146,50 @@ class NewsArchiveTests(unittest.TestCase):
             self.assertTrue(row[4])
             self.assertTrue(row[5])
             self.assertTrue(row[6])
+
+    def test_mark_shorts_status_tracks_quality_review_state(self):
+        from news.archive import archive_articles, mark_shorts_status
+        from news.ranker import score_article
+
+        with tempfile.TemporaryDirectory() as tmp:
+            db_path = Path(tmp) / "archive.sqlite3"
+            article = score_article(
+                {
+                    "source_id": "example",
+                    "source_name": "Example Tech",
+                    "source_tier": "news_secondary",
+                    "title": "A test phone launch needs video review",
+                    "url": "https://example.com/review-phone",
+                    "canonical_url": "https://example.com/review-phone",
+                    "raw_excerpt": "A product launch article for a generated video.",
+                }
+            )
+            archive_articles([article], db_path=db_path)
+
+            self.assertEqual(
+                mark_shorts_status(
+                    article,
+                    "needs_review",
+                    rank=3,
+                    video_path="/tmp/review-short.mp4",
+                    db_path=db_path,
+                ),
+                1,
+            )
+
+            con = sqlite3.connect(db_path)
+            row = con.execute(
+                """
+                SELECT shorts_video_status, shorts_rank, shorts_video_path, shorts_generated_at
+                FROM articles
+                """
+            ).fetchone()
+            con.close()
+
+            self.assertEqual(row[0], "needs_review")
+            self.assertEqual(row[1], 3)
+            self.assertEqual(row[2], "/tmp/review-short.mp4")
+            self.assertTrue(row[3])
 
     def test_archive_articles_defaults_missing_fetched_at(self):
         from news.archive import archive_articles

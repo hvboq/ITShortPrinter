@@ -114,6 +114,7 @@ def init_archive(db_path: str | Path | None = None) -> Path:
         )
         existing_columns = {row[1] for row in con.execute("PRAGMA table_info(articles)").fetchall()}
         migrations = {
+            "source_id": "ALTER TABLE articles ADD COLUMN source_id TEXT",
             "shorts_video_status": "ALTER TABLE articles ADD COLUMN shorts_video_status TEXT NOT NULL DEFAULT 'not_generated'",
             "shorts_selected_at": "ALTER TABLE articles ADD COLUMN shorts_selected_at TEXT",
             "shorts_generated_at": "ALTER TABLE articles ADD COLUMN shorts_generated_at TEXT",
@@ -337,6 +338,7 @@ def mark_shorts_status(
     timestamp_column = {
         "selected": "shorts_selected_at",
         "generated": "shorts_generated_at",
+        "needs_review": "shorts_generated_at",
         "uploaded": "shorts_uploaded_at",
     }.get(status)
 

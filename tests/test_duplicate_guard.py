@@ -13,7 +13,9 @@ from news.duplicate_guard import (  # noqa: E402
     canonicalize_url,
     duplicate_reason,
     is_stale_pending_upload,
+    load_history,
     titles_similar,
+    write_history,
 )
 
 
@@ -65,6 +67,23 @@ class DuplicateGuardTests(unittest.TestCase):
         self.assertEqual(active_history_items([stale_pending, recent_pending], now=now), [recent_pending])
         self.assertIsNone(duplicate_reason({"article_url": "https://example.com/gpu"}, [stale_pending]))
         self.assertEqual(duplicate_reason({"article_url": "https://example.com/amd-gpu"}, [recent_pending]), "url")
+
+    def test_load_history_fails_closed_on_corrupt_json(self):
+        path = Path(self.id().replace(".", "_"))
+        path.write_text("{not-json", encoding="utf-8")
+        try:
+            with self.assertRaises(ValueError):
+                load_history(path)
+        finally:
+            path.unlink(missing_ok=True)
+
+    def test_write_history_uses_requested_json_shape(self):
+        path = Path(self.id().replace(".", "_"))
+        try:
+            write_history(path, [{"article_url": "https://example.com/story"}])
+            self.assertEqual(load_history(path), [{"article_url": "https://example.com/story"}])
+        finally:
+            path.unlink(missing_ok=True)
 
 
 if __name__ == "__main__":

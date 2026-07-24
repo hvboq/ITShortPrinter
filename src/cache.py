@@ -71,6 +71,7 @@ def get_accounts(provider: str) -> List[dict]:
         account (List[dict]): The accounts
     """
     cache_path = get_provider_cache_path(provider)
+    os.makedirs(get_cache_path(), exist_ok=True)
 
     if not os.path.exists(cache_path):
         # Create the cache file
@@ -148,6 +149,7 @@ def get_products() -> List[dict]:
     Returns:
         products (List[dict]): The products
     """
+    os.makedirs(get_cache_path(), exist_ok=True)
     if not os.path.exists(get_afm_cache_path()):
         # Create the cache file
         with open(get_afm_cache_path(), 'w') as file:

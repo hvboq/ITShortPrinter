@@ -144,9 +144,25 @@ def load_history(history_path: Path) -> list[dict[str, Any]]:
         return []
     try:
         data = json.loads(history_path.read_text(encoding="utf-8"))
-    except Exception:
-        return []
-    return data if isinstance(data, list) else []
+    except Exception as exc:
+        raise ValueError(f"Upload history is unreadable: {history_path}") from exc
+    if not isinstance(data, list):
+        raise ValueError(f"Upload history must contain a list: {history_path}")
+    return data
+
+
+def atomic_write_json(path: Path, data: Any) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temp_path = path.with_name(f".{path.name}.{os.getpid()}.tmp")
+    temp_path.write_text(
+        json.dumps(data, ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
+    os.replace(temp_path, path)
+
+
+def write_history(history_path: Path, history: list[dict[str, Any]]) -> None:
+    atomic_write_json(history_path, history)
 
 
 @contextmanager

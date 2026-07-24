@@ -26,13 +26,17 @@ SCREEN_DIR.mkdir(parents=True, exist_ok=True)
 VISIBILITY = "unlisted"
 
 
+def _env_flag(name: str) -> bool:
+    return os.environ.get(name, "").strip().lower() in {"1", "true", "yes"}
+
+
 if __name__ == "__main__":
     upload_manifest_with_api(
         source_manifest=MANIFEST,
         output_manifest=UPLOAD_MANIFEST,
         visibility=VISIBILITY,
-        update_history=False,
-        update_archive=False,
+        update_history=_env_flag("UPDATE_UPLOAD_HISTORY"),
+        update_archive=_env_flag("UPDATE_ARCHIVE_STATUS"),
         start_label="UPLOAD_TOP5_START",
         done_label="UPLOAD_TOP5_DONE",
     )
