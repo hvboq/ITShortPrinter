@@ -30,15 +30,19 @@ UPLOAD_SCOPES = [
     "https://www.googleapis.com/auth/youtube.upload",
 ]
 
+COMMENT_SCOPES = [
+    "https://www.googleapis.com/auth/youtube.force-ssl",
+]
+
 # Keep the broad YouTube scope in the default token as well. Scheduled uploads use
-# youtube.upload, analytics uses read-only scopes, and operational cleanup can need
-# videos.delete; requesting a consistent superset avoids refresh failures when an
-# older token was authorized with a different YouTube scope set.
+# youtube.upload, analytics and comment analysis use read-only/force-ssl scopes, and
+# operational cleanup can need videos.delete; requesting a consistent superset avoids
+# refresh failures when an older token was authorized with a different YouTube scope set.
 MANAGE_SCOPES = [
     "https://www.googleapis.com/auth/youtube",
 ]
 
-DEFAULT_SCOPES = READONLY_SCOPES + UPLOAD_SCOPES + MANAGE_SCOPES
+DEFAULT_SCOPES = READONLY_SCOPES + UPLOAD_SCOPES + COMMENT_SCOPES + MANAGE_SCOPES
 
 
 def ensure_secrets_dir() -> Path:
