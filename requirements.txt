@@ -11,6 +11,7 @@ selenium
 ollama
 edge-tts
 moviepy<2
+numpy
 Pillow>=10.0.0
 yagmail
 assemblyai

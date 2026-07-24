@@ -82,6 +82,7 @@ class NewsPipelineTests(unittest.TestCase):
                         <meta property="og:title" content="Samsung UDC phone launch" />
                         <meta property="article:published_time" content="2026-04-21T10:00:00+00:00" />
                         <meta property="og:description" content="Samsung unveiled a new UDC concept." />
+                        <meta property="og:image" content="/images/samsung-udc.jpg" />
                     </head>
                     <body>
                         <article>
@@ -105,6 +106,10 @@ class NewsPipelineTests(unittest.TestCase):
         self.assertEqual(articles[0].source, "theverge")
         self.assertIn("Samsung", articles[0].title)
         self.assertEqual(articles[0].llm_score, 84)
+        self.assertEqual(
+            articles[0].image_url,
+            "https://www.theverge.com/images/samsung-udc.jpg",
+        )
         self.assertGreater(articles[0].public_interest_score, 0)
         self.assertGreater(articles[0].realism_score, 0)
         self.assertGreater(articles[0].score, 0)

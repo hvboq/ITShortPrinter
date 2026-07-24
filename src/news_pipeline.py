@@ -491,6 +491,8 @@ class NewsPipeline:
         content = self._extract_content(document, source)
         summary = self._extract_summary(document, content)
         image_url = self._extract_image_url(document)
+        if image_url:
+            image_url = urljoin(url, image_url)
         category = self._extract_category(document, source)
 
         if not title or not content:

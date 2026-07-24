@@ -13,6 +13,9 @@
   "nanobanana2_aspect_ratio": "9:16",
   "image_provider": "hermes",
   "max_image_prompts": 5,
+  "background_music_volume": 0.08,
+  "background_music_fade_seconds": 0.75,
+  "subtitle_max_chars": 24,
   "threads": 2,
   "zip_url": "",
   "is_for_kids": false,
@@ -36,7 +39,7 @@
   "tts_provider": "edge",
   "font": "bold_font.ttf",
   "imagemagick_path": "Path to magick.exe or on linux/macOS just /usr/bin/convert",
-  "script_sentence_length": 4,
+  "script_sentence_length": 6,
   "news_pipeline": {
     "enabled": true,
     "max_article_age_hours": 48,

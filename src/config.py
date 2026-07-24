@@ -337,6 +337,35 @@ def get_max_image_prompts() -> int:
         return 5
 
 
+def _coerce_float_config(key: str, default: float, minimum: float, maximum: float) -> float:
+    value = get_config_value(key, default)
+    try:
+        parsed = float(value)
+    except (TypeError, ValueError):
+        return default
+    return min(maximum, max(minimum, parsed))
+
+
+def get_background_music_volume() -> float:
+    """Return background music volume mixed under narration."""
+    return _coerce_float_config(
+        "background_music_volume",
+        default=0.08,
+        minimum=0.0,
+        maximum=1.0,
+    )
+
+
+def get_background_music_fade_seconds() -> float:
+    """Return fade duration for background music starts and endings."""
+    return _coerce_float_config(
+        "background_music_fade_seconds",
+        default=0.75,
+        minimum=0.0,
+        maximum=3.0,
+    )
+
+
 def get_threads() -> int:
     """
     Gets the amount of threads to use for example when writing to a file with MoviePy.
@@ -416,7 +445,7 @@ def get_tts_voice() -> str:
     Returns:
         voice (str): The TTS voice
     """
-    return get_config_value("tts_voice", "Jasper")
+    return get_config_value("tts_voice", "ko-KR-SunHiNeural")
 
 
 def get_tts_provider() -> str:
@@ -424,9 +453,9 @@ def get_tts_provider() -> str:
     Gets the configured TTS provider.
 
     Returns:
-        provider (str): The TTS provider. "kitten" uses KittenTTS, "silent" writes a valid silent WAV for smoke tests.
+        provider (str): The TTS provider. "edge" uses Microsoft Edge TTS, "kitten" uses KittenTTS, "silent" writes a valid silent WAV for smoke tests.
     """
-    return get_config_value("tts_provider", "kitten")
+    return get_config_value("tts_provider", "edge")
 
 def get_assemblyai_api_key() -> str:
     """
@@ -473,7 +502,16 @@ def get_whisper_compute_type() -> str:
     """
     return get_config_value("whisper_compute_type", "int8")
     
-def equalize_subtitles(srt_path: str, max_chars: int = 10) -> None:
+def get_subtitle_max_chars() -> int:
+    """Return the preferred maximum characters per rendered subtitle chunk."""
+    value = get_config_value("subtitle_max_chars", 24)
+    try:
+        return min(40, max(10, int(value)))
+    except (TypeError, ValueError):
+        return 24
+
+
+def equalize_subtitles(srt_path: str, max_chars: int = 24) -> None:
     """
     Equalizes the subtitles in a SRT file.
 
@@ -518,7 +556,7 @@ def get_imagemagick_path() -> str:
 def get_script_sentence_length() -> int:
     """
     Gets the forced script's sentence length.
-    In case there is no sentence length in config, returns 4 when none
+    In case there is no sentence length in config, returns 6 when none
 
     Returns:
         length (int): Length of script's sentence
@@ -526,7 +564,7 @@ def get_script_sentence_length() -> int:
     config_json = load_config()
     if config_json.get("script_sentence_length") is not None:
         return config_json["script_sentence_length"]
-    return 4
+    return 6
 
 def get_news_pipeline_config() -> dict:
     """

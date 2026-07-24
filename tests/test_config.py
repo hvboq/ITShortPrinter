@@ -212,6 +212,68 @@ class PostBridgeConfigTests(unittest.TestCase):
 
         self.assertEqual(youtube_config, {"slug": "youtube-channel", "name": "", "id": ""})
 
+    def test_video_audio_quality_config_is_clamped(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            self.write_config(
+                temp_dir,
+                {
+                    "background_music_volume": 5,
+                    "background_music_fade_seconds": -2,
+                },
+            )
+
+            with patch.object(config, "ROOT_DIR", temp_dir):
+                volume = config.get_background_music_volume()
+                fade_seconds = config.get_background_music_fade_seconds()
+
+        self.assertEqual(volume, 1.0)
+        self.assertEqual(fade_seconds, 0.0)
+
+    def test_video_audio_quality_config_defaults_are_narration_friendly(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            self.write_config(temp_dir, {})
+
+            with patch.object(config, "ROOT_DIR", temp_dir):
+                volume = config.get_background_music_volume()
+                fade_seconds = config.get_background_music_fade_seconds()
+
+        self.assertEqual(volume, 0.08)
+        self.assertEqual(fade_seconds, 0.75)
+
+    def test_tts_defaults_are_korean_shorts_friendly(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            self.write_config(temp_dir, {})
+
+            with patch.object(config, "ROOT_DIR", temp_dir):
+                provider = config.get_tts_provider()
+                voice = config.get_tts_voice()
+
+        self.assertEqual(provider, "edge")
+        self.assertEqual(voice, "ko-KR-SunHiNeural")
+
+    def test_script_sentence_default_supports_readable_shorts_pacing(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            self.write_config(temp_dir, {})
+
+            with patch.object(config, "ROOT_DIR", temp_dir):
+                sentence_length = config.get_script_sentence_length()
+
+        self.assertEqual(sentence_length, 6)
+
+    def test_subtitle_max_chars_config_is_clamped_for_vertical_readability(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            self.write_config(temp_dir, {"subtitle_max_chars": 4})
+
+            with patch.object(config, "ROOT_DIR", temp_dir):
+                too_small = config.get_subtitle_max_chars()
+
+            self.write_config(temp_dir, {"subtitle_max_chars": 200})
+            with patch.object(config, "ROOT_DIR", temp_dir):
+                too_large = config.get_subtitle_max_chars()
+
+        self.assertEqual(too_small, 10)
+        self.assertEqual(too_large, 40)
+
 
 if __name__ == "__main__":
     unittest.main()

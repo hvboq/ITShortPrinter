@@ -28,10 +28,14 @@ All your configurations live in a root-level `config.json`, which starts as a co
 - `whisper_device`: `string` - Whisper execution device: `auto`, `cpu`, or `cuda`.
 - `whisper_compute_type`: `string` - Whisper compute type such as `int8` or `float16`.
 - `assembly_ai_api_key`: `string` - AssemblyAI API key.
-- `tts_voice`: `string` - KittenTTS voice. Default: `Jasper`.
+- `tts_provider`: `string` - TTS provider. Supported values: `edge`, `kitten`, `silent`. Default: `edge`.
+- `tts_voice`: `string` - TTS voice. Default: `ko-KR-SunHiNeural`.
+- `background_music_volume`: `number` - Background music gain used during Shorts mixing. Default: `0.08`.
+- `background_music_fade_seconds`: `number` - Fade-in and fade-out duration for background music. Default: `0.75`.
+- `subtitle_max_chars`: `number` - Maximum characters per generated subtitle chunk. Default: `24`.
 - `font`: `string` - Font filename from the `fonts/` directory.
 - `imagemagick_path`: `string` - Path to the ImageMagick binary used by MoviePy.
-- `script_sentence_length`: `number` - Number of sentences in the generated video script. Default: `4`.
+- `script_sentence_length`: `number` - Number of sentences in the generated video script. Default: `6`.
 - `news_pipeline`: `object` - Settings for tech-news collection and ranking.
 - `news_pipeline.enabled`: `boolean` - Enables the local tech-news pipeline.
 - `news_pipeline.max_article_age_hours`: `number` - Maximum age of candidate articles.
@@ -81,10 +85,14 @@ All your configurations live in a root-level `config.json`, which starts as a co
   "whisper_device": "auto",
   "whisper_compute_type": "int8",
   "assembly_ai_api_key": "",
-  "tts_voice": "Jasper",
+  "tts_voice": "ko-KR-SunHiNeural",
+  "tts_provider": "edge",
+  "background_music_volume": 0.08,
+  "background_music_fade_seconds": 0.75,
+  "subtitle_max_chars": 24,
   "font": "bold_font.ttf",
   "imagemagick_path": "Path to magick.exe or on linux/macOS just /usr/bin/convert",
-  "script_sentence_length": 4,
+  "script_sentence_length": 6,
   "news_pipeline": {
     "enabled": true,
     "max_article_age_hours": 48,

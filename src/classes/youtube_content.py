@@ -1,12 +1,47 @@
 import re
 from dataclasses import asdict, is_dataclass
 
+SCRIPT_MIN_CHARS = 120
+SCRIPT_MAX_CHARS = 520
+SCRIPT_MIN_SENTENCES = 3
+SCRIPT_SENTENCE_RE = re.compile(r"(?<=[.!?。！？…])\s+")
+METADATA_TITLE_MAX_CHARS = 68
+
+
+def script_char_count(script: str) -> int:
+    """Count non-space characters for Shorts narration pacing checks."""
+    return len(re.sub(r"\s+", "", str(script or "")))
+
+
+def script_sentence_count(script: str) -> int:
+    """Estimate sentence count in a generated narration script."""
+    text = str(script or "").strip()
+    if not text:
+        return 0
+    sentences = [part for part in SCRIPT_SENTENCE_RE.split(text) if part.strip()]
+    return max(1, len(sentences))
+
+
+def script_quality_warnings(script: str) -> list[str]:
+    """Return structural warnings for a generated Shorts narration script."""
+    char_count = script_char_count(script)
+    warnings: list[str] = []
+    if char_count <= 0:
+        warnings.append("structure_script_empty")
+    elif char_count < SCRIPT_MIN_CHARS:
+        warnings.append("structure_script_too_short")
+    elif char_count > SCRIPT_MAX_CHARS:
+        warnings.append("structure_script_too_long")
+
+    if char_count > 0 and script_sentence_count(script) < SCRIPT_MIN_SENTENCES:
+        warnings.append("structure_script_sentence_count_low")
+    return warnings
+
 
 def clean_generated_korean_text(text: str) -> str:
     """Clean common LLM artifacts before TTS/subtitles/metadata are rendered."""
     text = str(text or "")
     replacements = {
-        "맥그네틱": "마그네틱",
         "AIagentic": "AI",
         "AI Agentic": "에이전틱 AI",
         "agentic AIagentic": "에이전틱 AI",
@@ -21,9 +56,13 @@ def clean_generated_korean_text(text: str) -> str:
         "갤럭시 에스이십육 FE": "갤럭시 S26 FE",
         "에스이십육 FE": "S26 FE",
         "중국형 가격대": "중급형 가격대",
+        "마케팅마케팅": "마케팅",
     }
     for old, new in replacements.items():
         text = text.replace(old, new)
+    text = re.sub(r"```(?:json)?|```", "", text, flags=re.IGNORECASE)
+    text = re.sub(r"(?m)^\s*(?:NARRATOR|VOICEOVER|대본|내레이션)\s*[:：-]\s*", "", text, flags=re.IGNORECASE)
+    text = re.sub(r"(?m)^\s*(?:[-*•]+|\d+[.)])\s+", "", text)
     text = re.sub(r"[\u1100-\u11ff]+", "", text)
     text = re.sub(r"\s+", " ", text).strip()
     return text
@@ -32,23 +71,28 @@ def clean_generated_korean_text(text: str) -> str:
 def clean_metadata_title(title: str) -> str:
     """Normalize title text used for upload metadata and persistent overlays."""
     title = clean_generated_korean_text(title)
-    title = re.sub(r"^[\"'“”‘’]+|[\"'“”‘’]+$", "", title).strip()
-    ad_replacements = {
+    title = re.sub(r"^\s*(?:제목|Title)\s*[:：-]\s*", "", title, flags=re.IGNORECASE)
+    title = re.sub(r"^[\"'“”‘’\[\]{}()<>]+|[\"'“”‘’\[\]{}()<>]+$", "", title).strip()
+
+    hype_replacements = {
         "국내 최초!": "",
         "국내 최초": "",
-        "역대급": "큰",
-        "수요 폭발": "수요 증가",
-        "폭발": "증가",
-        "극대화하는 법": "높이는 전략",
-        "극대화": "향상",
-        "새로운 기준": "새 접근",
+        "역대급": "큰 변화",
+        "대박": "주목",
+        "초특가": "",
+        "무조건 사야": "살펴볼",
+        "놓치면 후회": "확인할",
+        "충격": "변화",
+        "실화?": "",
     }
-    for old, new in ad_replacements.items():
+    for old, new in hype_replacements.items():
         title = title.replace(old, new)
+
     title = re.sub(r"\s+([!?])", r"\1", title)
-    if len(title) > 92:
-        title = title[:91].rstrip() + "…"
-    return title or "오늘의 IT 핵심 이슈"
+    title = re.sub(r"\s+", " ", title).strip(" -|")
+    if len(title) > METADATA_TITLE_MAX_CHARS:
+        title = title[: METADATA_TITLE_MAX_CHARS - 3].rstrip(" .,!?:;~-|") + "..."
+    return title or "오늘의 IT 핵심 뉴스"
 
 
 def normalize_news_article(article) -> dict:

@@ -14,9 +14,11 @@ from status import *
 from uuid import uuid4
 from constants import *
 from news.shorts import build_shorts_script_prompt
+from .youtube_content import METADATA_TITLE_MAX_CHARS
 from .youtube_content import clean_generated_korean_text
 from .youtube_content import clean_metadata_title
 from .youtube_content import normalize_news_article
+from .youtube_content import script_quality_warnings
 from . import youtube_visuals
 from . import youtube_subtitles
 from . import youtube_composer
@@ -321,17 +323,19 @@ class YouTube:
 
         review_prompt = f"""
 너는 한국어 IT 뉴스 쇼츠 채널의 대본 품질 검수자다.
-아래 대본을 업로드 전 한 번 검토하고, 필요하면 최소한으로 수정한 최종 나레이션 대본을 제시해.
+아래 대본을 업로드 전 한 번 검토하고, 필요하면 최소한으로 수정한 최종 내레이션 대본을 제시해.
 
-검수 기준:
-- 첫 문장이 1~3초 안에 궁금증을 만든다.
-- 무엇이 발표/출시/변경되었는지 바로 이해된다.
-- 왜 중요한지 일반 IT 관심층 관점에서 설명된다.
-- 한국어가 자연스럽고 말로 읽기 좋다.
+        검수 기준:
+        - 첫 문장이 1~3초 안에 궁금증을 만든다.
+        - 무엇이 발표/출시/변경되었는지 바로 이해된다.
+        - 왜 중요한지 일반 IT 관심층 관점에서 설명된다.
+        - 전체 길이는 30~45초 쇼츠에 맞고, 5~7개의 짧은 문장으로 읽기 좋다.
+        - 한 문장에 정보를 과하게 몰아넣지 않고 모바일 자막으로 읽을 수 있다.
+        - 한국어가 자연스럽고 말로 읽기 좋다.
 - 과장, 허위 단정, 루머의 사실화, 출처/URL/도메인 언급이 없다.
 - AI/소프트웨어/개발 이슈 중심으로 새지 않고, 소비자 기기/하드웨어 관점에 맞다.
 - 마지막은 자연스러운 핵심 정리 또는 구독 CTA로 끝난다.
-- 불필요한 라벨, 제목, 마크다운 없이 실제 나레이션 문장만 유지한다.
+- 불필요한 라벨, 제목, 마크다운 없이 실제 내레이션 문장만 유지한다.
 
 {article_context}
 
@@ -343,7 +347,7 @@ class YouTube:
   "approved": true 또는 false,
   "score": 0부터 100까지 정수,
   "issues": ["핵심 문제 1", "핵심 문제 2"],
-  "revised_script": "최종 나레이션 대본. 문제가 없으면 원문을 그대로 넣기"
+  "revised_script": "최종 내레이션 대본. 문제가 없으면 원문을 그대로 넣기"
 }}
 """.strip()
 
@@ -367,6 +371,46 @@ class YouTube:
             print(colored(f"=> Script review completed with {get_script_review_model()} (approved={approved}, score={score})", "green"))
         return final_script
 
+    def _improve_script_for_quality(self, script: str, warnings_list: list[str]) -> str:
+        """Ask the text model for one tighter rewrite when the first script misses pacing targets."""
+        issues = ", ".join(warnings_list)
+        prompt = f"""
+        아래 한국어 쇼츠 내레이션 대본은 품질 기준을 일부 충족하지 못했습니다.
+        문제: {issues}
+
+        목표:
+        - 30~45초 분량
+        - 전체 260~380자
+        - 5~7개의 짧고 명확한 문장
+        - 모바일 자막으로 읽기 쉬운 호흡
+        - 마크다운, 제목, 번호, NARRATOR/VOICEOVER 라벨 없이 실제 내레이션 문장만 출력
+        - 과장 광고 표현 없이 IT 뉴스 브리핑 톤 유지
+
+        주제: {getattr(self, "subject", "")}
+
+        현재 대본:
+        {script}
+
+        개선된 최종 내레이션 대본만 한국어로 반환하세요.
+        """.strip()
+
+        try:
+            revised = self.generate_response(prompt)
+        except Exception as exc:
+            if get_verbose():
+                warning(f"Script quality rewrite failed; using reviewed script: {exc}")
+            return script
+
+        revised = self._clean_generated_korean_text(re.sub(r"\*", "", revised))
+        if not revised:
+            return script
+
+        original_warnings = script_quality_warnings(script)
+        revised_warnings = script_quality_warnings(revised)
+        if len(revised_warnings) <= len(original_warnings):
+            return revised
+        return script
+
     def generate_script(self) -> str:
         """
         Generate a script for a video, depending on the subject of the video, the number of paragraphs, and the AI model.
@@ -383,7 +427,7 @@ class YouTube:
             )
         else:
             prompt = f"""
-        {sentence_length}문장 이내의 한국어 유튜브 쇼츠 대본을 작성해.
+        {sentence_length}문장 이내의 30~45초 한국어 유튜브 쇼츠 대본을 작성해.
 
         대본은 실제로 읽을 수 있는 짧은 문장들로만 구성해.
         예시 형식:
@@ -393,10 +437,11 @@ class YouTube:
         "안녕하세요", "오늘 영상에 오신 걸 환영합니다" 같은 불필요한 도입 없이 바로 핵심으로 들어가.
         대본은 반드시 주제와 직접 관련되어야 한다.
         
-        반드시 {sentence_length}문장 제한을 지켜. 각 문장은 짧게 작성해.
+        반드시 {sentence_length}문장 제한을 지켜. 각 문장은 모바일 자막으로 읽기 쉽게 45자 안팎으로 짧게 작성해.
+        전체 대본은 대략 260~380자 범위로 맞추고, 한 문장에 정보를 과하게 몰아넣지 마.
         반드시 한국어로만 작성해. 영어 제목/소재가 들어오더라도 자연스러운 한국어로 번역·재구성해.
         마크다운, 제목, 서식, VOICEOVER, NARRATOR 같은 라벨을 절대 쓰지 마.
-        대본 자체나 문장 수에 대해 말하지 말고, 실제 나레이션 원문만 반환해.
+        대본 자체나 문장 수에 대해 말하지 말고, 실제 내레이션 원문만 반환해.
         
         주제: {self.subject}
         출력 언어: 한국어
@@ -409,6 +454,11 @@ class YouTube:
         if not completion:
             error("The generated script is empty.")
             return
+
+        quality_warnings = script_quality_warnings(completion)
+        if quality_warnings:
+            improved = self._improve_script_for_quality(completion, quality_warnings)
+            completion = improved
 
         completion = self.review_script_with_local_ollama(completion)
 
@@ -429,7 +479,7 @@ class YouTube:
             metadata (dict): The generated metadata.
         """
         title = self._clean_metadata_title(self.generate_response(
-            f"다음 주제에 맞는 유튜브 쇼츠 제목을 반드시 한국어로만 작성해. 제품명과 브랜드명은 뉴스 이해에 꼭 필요할 때만 최소한으로 유지하되, S27 Pro, S26 FE, A37 5G, RTX 5090, M5처럼 숫자·영문이 섞인 공식 모델명은 한글로 풀어 쓰거나 번역하지 말고 원문 표기를 그대로 유지해. 공식 광고처럼 보이는 과장 표현(국내 최초!, 역대급, 폭발, 극대화하는 법, 새로운 기준)은 피해서 중립적인 뉴스 제목으로 써. 해시태그는 최대 2개만 포함하고 전체 92자 미만으로 제한해. 깨진 문자, 한글 자모만 남은 글자, 이모지, 따옴표를 쓰지 마. 제목만 반환해. 주제: {self.subject}"
+            f"다음 주제에 맞는 유튜브 쇼츠 제목을 반드시 한국어로만 작성해. 제품명과 브랜드명은 뉴스 이해에 꼭 필요할 때만 최소한으로 유지하되, S27 Pro, S26 FE, A37 5G, RTX 5090, M5처럼 숫자·영문이 섞인 공식 모델명은 한글로 풀어 쓰거나 번역하지 말고 원문 표기를 그대로 유지해. 공식 광고처럼 보이는 과장 표현(국내 최초!, 역대급, 폭발, 극대화하는 법, 새로운 기준)은 피해서 중립적인 뉴스 제목으로 써. 해시태그는 최대 2개만 포함하고 전체 {METADATA_TITLE_MAX_CHARS}자 이하로 제한해. 깨진 문자, 한글 자모만 남은 글자, 이모지, 따옴표를 쓰지 마. 제목만 반환해. 주제: {self.subject}"
         ))
 
         if len(title) > 100:
@@ -468,8 +518,13 @@ class YouTube:
         출력 형식은 문자열만 담긴 JSON 배열이어야 한다.
         JSON 배열 안의 문자열도 한국어로 작성한다.
 
-        각 이미지 프롬프트는 한 문장으로 작성하고,
-        영상의 핵심 주제를 반드시 포함한다.
+        각 이미지 프롬프트는 한 문장으로 작성하고, 영상의 핵심 주제를 반드시 포함한다.
+        컷마다 서로 다른 역할을 맡긴다:
+        1) 첫 3초 훅을 시각화하는 오프닝 컷
+        2) 핵심 제품/기술 변화를 보여주는 설명 컷
+        3) 사용자가 체감할 변화를 보여주는 컷
+        4) 경쟁 구도나 시장 의미를 보여주는 분석 컷
+        5) 핵심 요약에 어울리는 클로징 컷
 
         감정적인 형용사와 구체적인 시각 묘사를 사용해서
         세로형 유튜브 쇼츠 이미지에 어울리게 만든다.
@@ -541,22 +596,14 @@ class YouTube:
                 )
             return self.generate_prompts(_attempt=_attempt + 1, _max_attempts=_max_attempts)
 
+        image_prompts = youtube_visuals.finalize_image_prompts(
+            image_prompts,
+            target_count=n_prompts,
+            subject=self.subject,
+        )
+
         if get_verbose():
             info(f" => Generated Image Prompts: {image_prompts}")
-
-        if len(image_prompts) > n_prompts:
-            image_prompts = image_prompts[:n_prompts]
-
-        safety_suffix = (
-            " 세로형 9:16 풀프레임 기술 뉴스 비주얼, 화면 캡처 아님, "
-            "유튜브 쇼츠 UI 없음, 틱톡 UI 없음, 릴스 UI 없음, 좋아요 댓글 공유 버튼 없음, "
-            "계정명 없음, 하단 캡션 UI 없음, 실제 회사 로고 없음, Apple 로고 없음, "
-            "브랜드 워드마크 없음, 이미지 안 텍스트 없음, generic device와 generic chip만 사용"
-        )
-        image_prompts = [
-            prompt if "유튜브 쇼츠 UI 없음" in prompt else f"{prompt}.{safety_suffix}"
-            for prompt in image_prompts
-        ]
 
         self.image_prompts = image_prompts
 
@@ -572,7 +619,7 @@ class YouTube:
             self.images,
         )
 
-    def download_image(self, image_url: str) -> str:
+    def download_image(self, image_url: str) -> str | None:
         """Download an article image and persist it as a local PNG for MoviePy."""
         return youtube_visuals.download_image(image_url, self.images)
 
@@ -582,6 +629,43 @@ class YouTube:
         normalized = re.sub(r"\s+", " ", str(reason or "placeholder visual generated")).strip()
         if normalized and normalized not in self.placeholder_visual_reasons:
             self.placeholder_visual_reasons.append(normalized)
+
+    def _article_lead_image_url(self) -> str:
+        """Return the best available image URL for the current news article."""
+        article = getattr(self, "news_article", None) or {}
+        if not isinstance(article, dict):
+            return ""
+
+        for key in (
+            "image_url",
+            "thumbnail_url",
+            "thumbnail",
+            "image",
+            "urlToImage",
+        ):
+            value = article.get(key)
+            if isinstance(value, dict):
+                value = value.get("url") or value.get("src")
+            if isinstance(value, str) and value.strip():
+                return value.strip()
+        return ""
+
+    def _add_article_lead_image(self) -> str | None:
+        """Use the article's lead image as the first visual when it is usable."""
+        image_url = self._article_lead_image_url()
+        if not image_url:
+            return None
+
+        try:
+            image_path = self.download_image(image_url)
+        except Exception as exc:
+            if get_verbose():
+                warning(f"Article lead image download failed; using generated visuals only: {exc}")
+            return None
+
+        if image_path and get_verbose():
+            info(f' => Added article lead image "{image_path}"')
+        return image_path
 
     def create_contextual_thumbnail(self, topic: str) -> str:
         """Create a deterministic local visual when no article image is available."""
@@ -606,7 +690,7 @@ class YouTube:
         warning("Hermes image queue is empty and CLI image generation is unavailable. Falling back to placeholder image.")
         return self.generate_placeholder_image(prompt, reason="Hermes image queue empty")
 
-    def generate_image_nanobanana2(self, prompt: str) -> str:
+    def generate_image_nanobanana2(self, prompt: str) -> str | None:
         """
         Generates an AI Image using Nano Banana 2 API (Gemini image API).
 
@@ -685,8 +769,8 @@ class YouTube:
         """
         path = os.path.join(ROOT_DIR, ".mp", str(uuid4()) + ".wav")
 
-        # Clean script, remove every character that is not a word character, a space, a period, a question mark, or an exclamation mark.
-        self.script = re.sub(r"[^\w\s.?!]", "", self.script)
+        # Keep common punctuation so TTS keeps natural pauses and numeric context.
+        self.script = re.sub(r"[^\w\s.,?!%~:;()가-힣-]", "", self.script)
 
         tts_instance.synthesize(self.script, path)
 
@@ -707,23 +791,50 @@ class YouTube:
         Returns:
             None
         """
-        videos = self.get_videos()
+        cache = get_youtube_cache_path()
+        os.makedirs(os.path.dirname(cache), exist_ok=True)
+
+        if os.path.exists(cache):
+            try:
+                with open(cache, "r") as file:
+                    previous_json = json.loads(file.read() or "{}")
+            except json.JSONDecodeError:
+                previous_json = {}
+        else:
+            previous_json = {}
+
+        if not isinstance(previous_json, dict):
+            previous_json = {}
+        accounts = previous_json.setdefault("accounts", [])
+        if not isinstance(accounts, list):
+            accounts = []
+            previous_json["accounts"] = accounts
+
+        account_data = None
+        for account in accounts:
+            if isinstance(account, dict) and account.get("id") == self._account_uuid:
+                account_data = account
+                break
+
+        if account_data is None:
+            account_data = {
+                "id": self._account_uuid,
+                "nickname": self._account_nickname,
+                "firefox_profile": self._fp_profile_path,
+                "niche": self._niche,
+                "language": self._language,
+                "videos": [],
+            }
+            accounts.append(account_data)
+
+        videos = account_data.setdefault("videos", [])
+        if not isinstance(videos, list):
+            videos = []
+            account_data["videos"] = videos
         videos.append(video)
 
-        cache = get_youtube_cache_path()
-
-        with open(cache, "r") as file:
-            previous_json = json.loads(file.read())
-
-            # Find our account
-            accounts = previous_json["accounts"]
-            for account in accounts:
-                if account["id"] == self._account_uuid:
-                    account["videos"].append(video)
-
-            # Commit changes
-            with open(cache, "w") as f:
-                f.write(json.dumps(previous_json))
+        with open(cache, "w") as f:
+            f.write(json.dumps(previous_json))
 
     def _split_script_for_subtitles(self, text: str, max_chars: int = 34) -> List[str]:
         """Split a Korean narration script into short subtitle chunks."""
@@ -760,12 +871,18 @@ class YouTube:
         use_stt = os.environ.get("SHORTS_USE_STT_SUBTITLES", "").strip().lower() in {"1", "true", "yes"}
         force_script = os.environ.get("SHORTS_FORCE_SCRIPT_SUBTITLES", "").strip().lower() in {"1", "true", "yes"}
         if force_script or not use_stt:
-            return self.generate_subtitles_from_script(duration_seconds=duration_seconds)
+            return self.generate_subtitles_from_script(
+                duration_seconds=duration_seconds,
+                max_chars=get_subtitle_max_chars(),
+            )
         try:
             return self.generate_subtitles(audio_path)
         except Exception as e:
             warning(f"STT subtitle generation failed, falling back to script subtitles: {e}")
-            return self.generate_subtitles_from_script(duration_seconds=duration_seconds)
+            return self.generate_subtitles_from_script(
+                duration_seconds=duration_seconds,
+                max_chars=get_subtitle_max_chars(),
+            )
 
     def _parse_srt_timestamp(self, timestamp: str) -> float:
         """Parse an SRT timestamp into seconds."""
@@ -970,7 +1087,7 @@ class YouTube:
         title = re.sub(r"\s+", " ", title).strip(" .")
         if not title:
             title = "오늘의 IT 핵심 이슈"
-        return f"{title[:90]}.mp4"
+        return f"{title[:56].rstrip(' .')}.mp4"
 
     def combine(self) -> str:
         """
@@ -990,7 +1107,7 @@ class YouTube:
         try:
             subtitles_path = self.generate_safe_subtitles(self.tts_path, duration)
             try:
-                equalize_subtitles(subtitles_path, 10)
+                equalize_subtitles(subtitles_path, get_subtitle_max_chars())
             except Exception as e:
                 warning(f"Failed to equalize subtitles, using raw subtitles: {e}")
             subtitles = self._create_subtitle_clips(subtitles_path)
@@ -1007,6 +1124,8 @@ class YouTube:
             subtitle_clips=subtitles,
             title_overlay_clip=title_overlay,
             threads=get_threads(),
+            music_volume=get_background_music_volume(),
+            music_fade_seconds=get_background_music_fade_seconds(),
             verbose=get_verbose(),
             info_callback=info,
         )
@@ -1033,6 +1152,9 @@ class YouTube:
 
         # Generate the Metadata
         self.generate_metadata()
+
+        # Use real article imagery first when the news source exposes a usable visual.
+        self._add_article_lead_image()
 
         # Generate the Image Prompts
         self.generate_prompts()
@@ -1114,6 +1236,7 @@ class YouTube:
                 description=description,
                 visibility="unlisted",
                 made_for_kids=get_is_for_kids(),
+                expected_channel_id=get_youtube_channel_config()["id"],
             )
             url = uploaded["uploaded_url"]
 
@@ -1152,17 +1275,25 @@ class YouTube:
         if not os.path.exists(get_youtube_cache_path()):
             # Create the cache file
             with open(get_youtube_cache_path(), "w") as file:
-                json.dump({"videos": []}, file, indent=4)
+                json.dump({"accounts": []}, file, indent=4)
             return []
 
         videos = []
         # Read the cache file
-        with open(get_youtube_cache_path(), "r") as file:
-            previous_json = json.loads(file.read())
-            # Find our account
-            accounts = previous_json["accounts"]
-            for account in accounts:
-                if account["id"] == self._account_uuid:
-                    videos = account["videos"]
+        try:
+            with open(get_youtube_cache_path(), "r") as file:
+                previous_json = json.loads(file.read() or "{}")
+        except json.JSONDecodeError:
+            previous_json = {}
+
+        if not isinstance(previous_json, dict):
+            previous_json = {}
+        accounts = previous_json.get("accounts", [])
+        if not isinstance(accounts, list):
+            accounts = []
+        for account in accounts:
+            if isinstance(account, dict) and account.get("id") == self._account_uuid:
+                account_videos = account.get("videos", [])
+                videos = account_videos if isinstance(account_videos, list) else []
 
         return videos

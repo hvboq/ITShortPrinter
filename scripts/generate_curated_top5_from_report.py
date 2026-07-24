@@ -1,18 +1,20 @@
 from __future__ import annotations
 
 import json
+import os
 import re
 from pathlib import Path
 
 import _bootstrap  # noqa: F401
-from moviepy.editor import VideoFileClip
 from news.archive import mark_shorts_status
 from classes.YouTube import YouTube
 from classes.Tts import TTS
-from config import get_image_provider, get_nanobanana2_model, get_tts_provider, get_env_var
+from classes.youtube_review import build_structure_quality_fields, extract_video_review_frame, review_archive_status
+from config import get_image_provider, get_nanobanana2_model, get_subtitle_max_chars, get_tts_provider, get_env_var
+from project_paths import project_root
 
-ROOT = Path('/opt/data/MoneyPrinterV2')
-REPORT = ROOT / 'reports/news/collected_news_all_20260510_134648.json'
+ROOT = project_root()
+REPORT = Path(os.environ.get('CURATED_NEWS_REPORT', str(ROOT / 'reports/news/collected_news_all_20260510_134648.json')))
 OUT_DIR = ROOT / '.mp' / 'batch_top5'
 OUT_DIR.mkdir(parents=True, exist_ok=True)
 MANIFEST = OUT_DIR / 'manifest.json'
@@ -54,7 +56,29 @@ for idx, article in enumerate(selected, 1):
     yt = YouTube.for_local_generation(niche='Korean IT News', language='Korean')
     path = yt.generate_video_from_news(TTS(), article)
     abs_path = str(Path(path).resolve())
-    clip = VideoFileClip(abs_path)
+    frame_path = OUT_DIR / f'frame_rank{idx}.png'
+    subtitle_path = getattr(yt, 'subtitles_path', '')
+    review = extract_video_review_frame(
+        abs_path,
+        frame_path,
+        subtitle_path=subtitle_path,
+        title_overlay_expected=True,
+    )
+    script = getattr(yt, 'script', '')
+    images = list(getattr(yt, 'images', []))
+    structure = build_structure_quality_fields(
+        script=script,
+        images=images,
+        image_prompts=list(getattr(yt, 'image_prompts', [])),
+        duration=review['duration'],
+        metadata=getattr(yt, 'metadata', {}),
+        subtitle_path=subtitle_path,
+        validate_image_files=True,
+        subtitle_max_chars=get_subtitle_max_chars(),
+        placeholder_visuals_used=bool(getattr(yt, 'has_placeholder_visuals', False)),
+        placeholder_visual_reasons=list(getattr(yt, 'placeholder_visual_reasons', [])),
+    )
+    archive_status = review_archive_status(review, structure)
     info = {
         'rank': idx,
         'score': article.get('shorts_score'),
@@ -66,21 +90,60 @@ for idx, article in enumerate(selected, 1):
         'article_id': article.get('id'),
         'video_path': abs_path,
         'metadata': getattr(yt, 'metadata', {}),
-        'script': getattr(yt, 'script', ''),
-        'images': list(getattr(yt, 'images', [])),
+        'script': script,
+        'images': images,
         'bytes': Path(abs_path).stat().st_size,
-        'duration': round(float(clip.duration), 2),
-        'size': clip.size,
-        'fps': float(clip.fps),
+        'duration': review['duration'],
+        'size': review['size'],
+        'fps': review['fps'],
+        'review_file_size_bytes': review['review_file_size_bytes'],
+        'frame_path': review['frame_path'],
+        'review_frame_timestamp': review['review_frame_timestamp'],
+        'review_frame_paths': review['review_frame_paths'],
+        'review_frame_timestamps': review['review_frame_timestamps'],
+        'review_sheet_path': review['review_sheet_path'],
+        'review_sheet_frame_count': review['review_sheet_frame_count'],
+        'review_frame_brightness': review['review_frame_brightness'],
+        'review_frame_contrast': review['review_frame_contrast'],
+        'review_frame_brightness_values': review['review_frame_brightness_values'],
+        'review_frame_contrast_values': review['review_frame_contrast_values'],
+        'review_frame_center_brightness': review['review_frame_center_brightness'],
+        'review_frame_center_contrast': review['review_frame_center_contrast'],
+        'review_frame_center_brightness_values': review['review_frame_center_brightness_values'],
+        'review_frame_center_contrast_values': review['review_frame_center_contrast_values'],
+        'review_title_frame_count': review['review_title_frame_count'],
+        'review_frame_title_contrast': review['review_frame_title_contrast'],
+        'review_frame_title_dark_ratio': review['review_frame_title_dark_ratio'],
+        'review_frame_title_bright_ratio': review['review_frame_title_bright_ratio'],
+        'review_frame_title_contrast_values': review['review_frame_title_contrast_values'],
+        'review_frame_title_dark_ratio_values': review['review_frame_title_dark_ratio_values'],
+        'review_frame_title_bright_ratio_values': review['review_frame_title_bright_ratio_values'],
+        'review_subtitle_frame_count': review['review_subtitle_frame_count'],
+        'review_frame_caption_contrast': review['review_frame_caption_contrast'],
+        'review_frame_caption_dark_ratio': review['review_frame_caption_dark_ratio'],
+        'review_frame_caption_bright_ratio': review['review_frame_caption_bright_ratio'],
+        'review_frame_caption_contrast_values': review['review_frame_caption_contrast_values'],
+        'review_frame_caption_dark_ratio_values': review['review_frame_caption_dark_ratio_values'],
+        'review_frame_caption_bright_ratio_values': review['review_frame_caption_bright_ratio_values'],
+        'review_frame_motion_scores': review['review_frame_motion_scores'],
+        'review_frame_average_motion_score': review['review_frame_average_motion_score'],
+        'review_audio_peak': review['review_audio_peak'],
+        'review_audio_rms': review['review_audio_rms'],
+        'review_warnings': review['review_warnings'],
+        'review_quality_pass': review['review_quality_pass'],
+        **structure,
+        'overall_quality_pass': review['review_quality_pass'] and structure['structure_quality_pass'],
+        'review_archive_status': archive_status,
+        'review_used_temp_copy': review['used_temp_copy'],
     }
-    frame_path = OUT_DIR / f'frame_rank{idx}.png'
-    clip.save_frame(str(frame_path), t=min(max(clip.duration * 0.35, 1.0), max(clip.duration - 1, 1)))
-    clip.close()
-    info['frame_path'] = str(frame_path)
-    mark_shorts_status(article, 'generated', rank=idx, video_path=abs_path)
+    mark_shorts_status(article, archive_status, rank=idx, video_path=abs_path)
     manifest.append(info)
     MANIFEST.write_text(json.dumps(manifest, ensure_ascii=False, indent=2), encoding='utf-8')
-    print(f"GENERATE_{idx}_DONE|path={abs_path}|duration={info['duration']}|bytes={info['bytes']}", flush=True)
+    print(
+        f"GENERATE_{idx}_DONE|path={abs_path}|duration={info['duration']}|"
+        f"bytes={info['bytes']}|review_status={archive_status}",
+        flush=True,
+    )
 
 print('CURATED_TOP5_DONE', flush=True)
 print('MANIFEST=', str(MANIFEST), flush=True)
