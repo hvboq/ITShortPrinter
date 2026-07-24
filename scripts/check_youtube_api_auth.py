@@ -11,12 +11,12 @@ if str(SRC_DIR) not in sys.path:
     sys.path.insert(0, str(SRC_DIR))
 
 from config import get_youtube_channel_config  # noqa: E402
-from youtube_api.auth import get_credentials, token_status, youtube_analytics_service, youtube_data_service  # noqa: E402
+from youtube_api.auth import DEFAULT_SCOPES, get_credentials, token_status, youtube_analytics_service, youtube_data_service  # noqa: E402
 
 
 def main() -> int:
     print(json.dumps({"oauth_status": token_status()}, ensure_ascii=False, indent=2))
-    creds = get_credentials(interactive=False)
+    creds = get_credentials(scopes=DEFAULT_SCOPES, interactive=False)
 
     youtube = youtube_data_service(creds)
     channels = youtube.channels().list(part="id,snippet,statistics,contentDetails", mine=True).execute()

@@ -7,13 +7,13 @@ import _bootstrap  # noqa: F401
 from classes.YouTube import YouTube
 from config import get_youtube_channel_config
 from project_paths import project_root, youtube_firefox_profile
-from youtube_studio import body_text
 from youtube_studio import capture_video_url
 from youtube_studio import click_publish_or_done
 from youtube_studio import go_to_visibility_step
 from youtube_studio import open_first_draft
 from youtube_studio import select_visibility_radio
 from youtube_studio import studio_channel_url
+from youtube_studio import verify_expected_studio_channel
 
 ROOT = project_root()
 PROFILE = youtube_firefox_profile()
@@ -32,15 +32,13 @@ results = []
 
 try:
     d.set_page_load_timeout(180)
+    if not channel_config["id"]:
+        raise RuntimeError("YOUTUBE_CHANNEL_ID is required before publishing drafts")
     channel_url = studio_channel_url(channel_config["id"])
     d.get(f"{channel_url}/videos/short")
     time.sleep(15)
     print("LIST_READY_TITLE=", d.title, flush=True)
-    expected_name = channel_config["name"]
-    active_expected_channel = bool(expected_name) and expected_name in body_text(d)
-    print("ACTIVE_EXPECTED_CHANNEL=", active_expected_channel, flush=True)
-    if expected_name and not active_expected_channel:
-        raise RuntimeError("Wrong channel")
+    verify_expected_studio_channel(d, channel_config["id"], channel_config["name"])
 
     for idx in range(1, 6):
         title = open_first_draft(d)

@@ -4,7 +4,7 @@ import re
 from pathlib import Path
 from typing import Any
 
-from youtube_api.auth import UPLOAD_SCOPES, get_credentials, youtube_data_service
+from youtube_api.auth import CHANNEL_UPLOAD_SCOPES, UPLOAD_SCOPES, get_credentials, youtube_data_service
 
 HEX_UUID_TITLE_RE = re.compile(
     r"^(?:[0-9a-fA-F]{8}|[0-9a-fA-F]{8}[- ][0-9a-fA-F]{4}[- ][0-9a-fA-F]{4}[- ][0-9a-fA-F]{4}[- ][0-9a-fA-F]{12})(?:\.[A-Za-z0-9]+)?$"
@@ -62,6 +62,32 @@ def build_video_body(
     return body
 
 
+def _authorized_channel_ids(youtube_service) -> set[str]:
+    response = youtube_service.channels().list(part="id", mine=True).execute()
+    return {
+        str(item.get("id", "")).strip()
+        for item in response.get("items", [])
+        if str(item.get("id", "")).strip()
+    }
+
+
+def _ensure_expected_channel(youtube_service, expected_channel_id: str) -> None:
+    expected = str(expected_channel_id or "").strip()
+    if not expected:
+        return
+    channel_ids = _authorized_channel_ids(youtube_service)
+    if expected not in channel_ids:
+        found = ",".join(sorted(channel_ids)) or "none"
+        raise RuntimeError(
+            f"YouTube OAuth token is not authorized for expected channel {expected}; found {found}"
+        )
+
+
+def _require_expected_channel_for_visibility(visibility: str, expected_channel_id: str) -> None:
+    if validate_visibility(visibility) == "public" and not str(expected_channel_id or "").strip():
+        raise ValueError("Public uploads require an expected YouTube channel id")
+
+
 def upload_video(
     video_path: str,
     title: str,
@@ -72,6 +98,7 @@ def upload_video(
     category_id: str = "28",
     made_for_kids: bool = False,
     notify_subscribers: bool = False,
+    expected_channel_id: str = "",
     youtube_service=None,
 ) -> dict[str, Any]:
     """Upload a video through YouTube Data API v3 videos.insert."""
@@ -79,11 +106,15 @@ def upload_video(
     if not path.exists():
         raise FileNotFoundError(f"Upload video not found: {path}")
 
+    _require_expected_channel_for_visibility(visibility, expected_channel_id)
+
     from googleapiclient.http import MediaFileUpload
 
+    scopes = CHANNEL_UPLOAD_SCOPES if expected_channel_id else UPLOAD_SCOPES
     youtube = youtube_service or youtube_data_service(
-        get_credentials(scopes=UPLOAD_SCOPES, interactive=False)
+        get_credentials(scopes=scopes, interactive=False)
     )
+    _ensure_expected_channel(youtube, expected_channel_id)
     body = build_video_body(
         title=title,
         description=description,

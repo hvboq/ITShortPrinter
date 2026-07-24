@@ -13,6 +13,26 @@ if str(SRC_DIR) not in sys.path:
 
 
 class YouTubeApiUploaderTests(unittest.TestCase):
+    def test_default_oauth_scopes_cover_setup_and_channel_checked_uploads(self):
+        from youtube_api.auth import (
+            ANALYTICS_SCOPES,
+            CHANNEL_UPLOAD_SCOPES,
+            DEFAULT_SCOPES,
+            MANAGE_SCOPES,
+            UPLOAD_SCOPES,
+            YOUTUBE_READONLY_SCOPES,
+        )
+
+        self.assertEqual(
+            set(DEFAULT_SCOPES),
+            set(YOUTUBE_READONLY_SCOPES + ANALYTICS_SCOPES + UPLOAD_SCOPES),
+        )
+        self.assertEqual(
+            set(CHANNEL_UPLOAD_SCOPES),
+            set(YOUTUBE_READONLY_SCOPES + UPLOAD_SCOPES),
+        )
+        self.assertTrue(set(MANAGE_SCOPES).isdisjoint(DEFAULT_SCOPES))
+
     def test_build_video_body_uses_upload_metadata_and_visibility(self):
         from youtube_api.uploader import build_video_body
 
@@ -96,6 +116,69 @@ class YouTubeApiUploaderTests(unittest.TestCase):
         self.assertFalse(kwargs["notifySubscribers"])
         self.assertEqual(kwargs["media_body"].mimetype, "video/*")
         self.assertTrue(kwargs["media_body"].resumable)
+
+    def test_upload_video_rejects_unexpected_authorized_channel(self):
+        from youtube_api import uploader
+
+        class FakeMediaFileUpload:
+            def __init__(self, filename, mimetype, resumable):
+                self.filename = filename
+                self.mimetype = mimetype
+                self.resumable = resumable
+
+        class FakeRequest:
+            def __init__(self, response):
+                self.response = response
+
+            def execute(self):
+                return self.response
+
+        class FakeChannels:
+            def list(self, **_kwargs):
+                return FakeRequest({"items": [{"id": "actual-channel"}]})
+
+        class FakeVideos:
+            def insert(self, **_kwargs):
+                raise AssertionError("upload should not start for the wrong channel")
+
+        class FakeYouTube:
+            def channels(self):
+                return FakeChannels()
+
+            def videos(self):
+                return FakeVideos()
+
+        fake_googleapiclient = types.ModuleType("googleapiclient")
+        fake_http = types.ModuleType("googleapiclient.http")
+        fake_http.MediaFileUpload = FakeMediaFileUpload
+
+        with tempfile.NamedTemporaryFile(suffix=".mp4") as tmp:
+            with patch.dict(
+                sys.modules,
+                {
+                    "googleapiclient": fake_googleapiclient,
+                    "googleapiclient.http": fake_http,
+                },
+            ):
+                with self.assertRaises(RuntimeError):
+                    uploader.upload_video(
+                        tmp.name,
+                        title="API 업로드 테스트",
+                        youtube_service=FakeYouTube(),
+                        expected_channel_id="expected-channel",
+                    )
+
+    def test_upload_video_requires_expected_channel_for_public_visibility(self):
+        from youtube_api import uploader
+
+        with tempfile.NamedTemporaryFile(suffix=".mp4") as tmp:
+            with self.assertRaises(ValueError):
+                uploader.upload_video(
+                    tmp.name,
+                    title="Public upload",
+                    visibility="public",
+                    youtube_service=object(),
+                )
 
 
 if __name__ == "__main__":

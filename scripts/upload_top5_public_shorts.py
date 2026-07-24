@@ -28,6 +28,9 @@ UPLOAD_HISTORY.parent.mkdir(parents=True, exist_ok=True)
 
 VISIBILITY = "public"
 
+if os.environ.get("ALLOW_PUBLIC_UPLOAD", "").strip().lower() not in {"1", "true", "yes"}:
+    raise SystemExit("Refusing public upload without ALLOW_PUBLIC_UPLOAD=1")
+
 
 if __name__ == "__main__":
     upload_manifest_with_api(

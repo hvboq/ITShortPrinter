@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Any, Iterable
 
 from config import get_youtube_channel_config
-from youtube_api.auth import get_credentials, youtube_analytics_service, youtube_data_service
+from youtube_api.auth import DEFAULT_SCOPES, get_credentials, youtube_analytics_service, youtube_data_service
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 UPLOAD_HISTORY_PATH = PROJECT_ROOT / "data" / "upload_history.json"
@@ -302,7 +302,7 @@ def build_insights(videos: list[dict[str, Any]], daily: list[dict[str, Any]]) ->
 
 
 def collect_performance_report(days: int = 28, max_videos: int = 50) -> dict[str, Any]:
-    creds = get_credentials(interactive=False)
+    creds = get_credentials(scopes=DEFAULT_SCOPES, interactive=False)
     youtube = youtube_data_service(creds)
     analytics = youtube_analytics_service(creds)
     channel = get_channel_summary(youtube)

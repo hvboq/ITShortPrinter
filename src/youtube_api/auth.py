@@ -21,24 +21,26 @@ SECRETS_DIR = PROJECT_ROOT / "secrets"
 CLIENT_SECRET_PATH = SECRETS_DIR / "youtube_oauth_client_secret.json"
 TOKEN_PATH = SECRETS_DIR / "youtube_oauth_token.json"
 
-READONLY_SCOPES = [
+YOUTUBE_READONLY_SCOPES = [
     "https://www.googleapis.com/auth/youtube.readonly",
+]
+
+ANALYTICS_SCOPES = [
     "https://www.googleapis.com/auth/yt-analytics.readonly",
 ]
+
+READONLY_SCOPES = YOUTUBE_READONLY_SCOPES + ANALYTICS_SCOPES
 
 UPLOAD_SCOPES = [
     "https://www.googleapis.com/auth/youtube.upload",
 ]
 
-# Keep the broad YouTube scope in the default token as well. Scheduled uploads use
-# youtube.upload, analytics uses read-only scopes, and operational cleanup can need
-# videos.delete; requesting a consistent superset avoids refresh failures when an
-# older token was authorized with a different YouTube scope set.
 MANAGE_SCOPES = [
     "https://www.googleapis.com/auth/youtube",
 ]
 
-DEFAULT_SCOPES = READONLY_SCOPES + UPLOAD_SCOPES + MANAGE_SCOPES
+CHANNEL_UPLOAD_SCOPES = YOUTUBE_READONLY_SCOPES + UPLOAD_SCOPES
+DEFAULT_SCOPES = READONLY_SCOPES + UPLOAD_SCOPES
 
 
 def ensure_secrets_dir() -> Path:
@@ -83,11 +85,13 @@ def load_credentials(scopes: Iterable[str] | None = None) -> Credentials | None:
 def save_credentials(creds: Credentials) -> None:
     _require_google_api_dependencies()
     ensure_secrets_dir()
-    TOKEN_PATH.write_text(creds.to_json(), encoding="utf-8")
+    temp_path = TOKEN_PATH.with_name(f".{TOKEN_PATH.name}.{os.getpid()}.tmp")
+    temp_path.write_text(creds.to_json(), encoding="utf-8")
     try:
-        os.chmod(TOKEN_PATH, 0o600)
+        os.chmod(temp_path, 0o600)
     except OSError:
         pass
+    os.replace(temp_path, TOKEN_PATH)
 
 
 def get_credentials(scopes: Iterable[str] | None = None, interactive: bool = False) -> Credentials:
