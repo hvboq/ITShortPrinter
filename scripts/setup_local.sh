@@ -8,6 +8,10 @@ echo "[setup] Root: $ROOT_DIR"
 
 REQUIRED_PYTHON_VERSION="${REQUIRED_PYTHON_VERSION:-$(tr -d '[:space:]' < .python-version 2>/dev/null || echo 3.12)}"
 VENV_DIR="${VENV_DIR:-venv}"
+if [[ -z "$VENV_DIR" || "$VENV_DIR" == */* || "$VENV_DIR" == "." || "$VENV_DIR" == ".." ]]; then
+  echo "[setup] ERROR: VENV_DIR must be a direct child directory name (for example 'venv' or '.venv')."
+  exit 1
+fi
 VENV_PATH="${ROOT_DIR}/${VENV_DIR}"
 PYTHON_BIN="${VENV_PATH}/bin/python"
 
@@ -70,8 +74,12 @@ ensure_compatible_venv() {
   fi
 
   if [[ "${RECREATE_VENV:-0}" == "1" ]]; then
+    if [[ -L "$VENV_PATH" ]]; then
+      echo "[setup] ERROR: Refusing to recursively remove linked virtual environment: $VENV_PATH"
+      exit 1
+    fi
     echo "[setup] Existing ${VENV_DIR}/ uses Python ${existing_version:-unknown}; recreating for ${REQUIRED_PYTHON_VERSION}."
-    rm -rf "$VENV_PATH"
+    rm -rf -- "$VENV_PATH"
     return 0
   fi
 
@@ -83,6 +91,11 @@ ensure_compatible_venv() {
 if [[ ! -f "config.json" ]]; then
   cp config.example.json config.json
   echo "[setup] Created config.json from config.example.json"
+fi
+
+if [[ -f ".env.example" && ! -f ".env" ]]; then
+  cp .env.example .env
+  echo "[setup] Created .env from .env.example"
 fi
 
 ensure_compatible_venv
@@ -130,8 +143,8 @@ with open(cfg_path, "r", encoding="utf-8") as f:
     cfg = json.load(f)
 
 # Set defaults per service without overriding explicit user choices.
-cfg.setdefault("llm_provider", "local_ollama")
-cfg.setdefault("image_provider", "local_automatic1111")
+cfg.setdefault("text_provider", "ollama")
+cfg.setdefault("image_provider", "gemini")
 cfg.setdefault("stt_provider", "local_whisper")
 
 cfg.setdefault("ollama_base_url", "http://127.0.0.1:11434")
@@ -188,7 +201,7 @@ with open(cfg_path, "w", encoding="utf-8") as f:
     f.write("\n")
 
 print(f"[setup] Updated {cfg_path}")
-print(f"[setup] llm_provider={cfg.get('llm_provider')} model={cfg.get('ollama_model')}")
+print(f"[setup] text_provider={cfg.get('text_provider')} model={cfg.get('ollama_model')}")
 print(f"[setup] image_provider={cfg.get('image_provider')}")
 print(f"[setup] stt_provider={cfg.get('stt_provider')}")
 PY

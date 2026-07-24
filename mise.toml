@@ -9,6 +9,8 @@ python = "3.12"
 _.python.venv = { path = "venv", create = true }
 PYTHONUTF8 = "1"
 PYTHONIOENCODING = "utf-8"
+PIP_DISABLE_PIP_VERSION_CHECK = "1"
+PIP_REQUIRE_VIRTUALENV = "true"
 
 [tasks.setup]
 description = "Create local config, install Python dependencies, and run preflight"
@@ -25,15 +27,26 @@ run = [
 [tasks.app]
 description = "Start the interactive CLI"
 run = "python src/main.py"
+raw = true
 
 [tasks.preflight]
 description = "Check local providers and configuration"
+alias = "doctor"
 run = "python scripts/preflight_local.py"
 
 [tasks.test]
 description = "Run the unit test suite"
 alias = "t"
-run = "python -m unittest discover -s tests"
+run = "python -m unittest discover -s tests -v"
+
+[tasks.check]
+description = "Validate config, compile Python sources, and run all tests"
+alias = "c"
+run = [
+  "python -c \"import json, pathlib; json.loads(pathlib.Path('config.example.json').read_text(encoding='utf-8'))\"",
+  "python -m compileall -q src scripts",
+  "python -m unittest discover -s tests -v",
+]
 
 [tasks.fetch-news]
 description = "Fetch and rank tech-news candidates"
@@ -46,3 +59,16 @@ run = "python scripts/make_news_short.py"
 [tasks.generate-top5]
 description = "Generate a batch of five Shorts"
 run = "python scripts/generate_top5_shorts.py"
+
+[tasks.youtube-auth]
+description = "Authorize the YouTube Data API OAuth client"
+run = "python scripts/setup_youtube_oauth.py"
+raw = true
+
+[tasks.upload-unlisted]
+description = "Upload a reviewed Top 5 manifest as unlisted videos"
+run = "python scripts/upload_top5_shorts.py"
+
+[tasks.two-hour-job]
+description = "Run one generate-review-upload job (unlisted by default)"
+run = "python scripts/run_two_hour_short_job.py"

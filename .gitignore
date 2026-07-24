@@ -1,10 +1,15 @@
-__pycache__
+__pycache__/
+*.py[cod]
+*$py.class
 config.json
 .env
 .env.*
 !.env.example
+mise.local.toml
+.mise.local.toml
 secrets/
 *.client_secret.json
+client_secret*.json
 *oauth_token*.json
 .mp/
 reports/
@@ -13,12 +18,24 @@ data/*
 !data/.gitkeep
 !data/topic_performance_weights.json
 venv/
+.venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+build/
+dist/
+*.egg-info/
 Songs/
 google-maps-scraper-0.9.7/
 niche.txt
 *.exe
 auto.sh
 .DS_Store
+Thumbs.db
+Desktop.ini
+*.log
 
 # Agent/local workflow artifacts; do not publish internal plans or tool downloads.
 .hermes/

@@ -13,6 +13,22 @@ except ModuleNotFoundError:
 
 ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 CONFIG_PATH = os.path.join(ROOT_DIR, "config.json")
+SRC_DIR = os.path.join(ROOT_DIR, "src")
+if SRC_DIR not in sys.path:
+    sys.path.insert(0, SRC_DIR)
+
+from config import (  # noqa: E402
+    get_hermes_model,
+    get_hermes_provider,
+    get_image_provider,
+    get_nanobanana2_api_base_url,
+    get_nanobanana2_api_key,
+    get_ollama_base_url,
+    get_ollama_model,
+    get_stt_provider,
+    get_text_provider,
+    load_env_file,
+)
 
 
 def ok(msg: str) -> None:
@@ -39,6 +55,8 @@ def check_url(url: str, timeout: int = 3) -> Tuple[bool, str]:
 
 
 def main() -> int:
+    load_env_file(os.path.join(ROOT_DIR, ".env"))
+
     if not os.path.exists(CONFIG_PATH):
         fail(f"Missing config file: {CONFIG_PATH}")
         return 1
@@ -48,24 +66,25 @@ def main() -> int:
 
     failures = 0
 
-    stt_provider = str(cfg.get("stt_provider", "local_whisper")).lower()
-    image_provider = str(cfg.get("image_provider", "gemini")).lower()
-    text_provider = str(cfg.get("text_provider", "ollama")).lower()
-    configured_text_model = str(cfg.get("ollama_model", "")).strip()
-    hermes_model = str(cfg.get("hermes_model", "gpt-5.5")).strip() or "gpt-5.5"
-    hermes_provider = str(cfg.get("hermes_provider", "")).strip() or os.environ.get("HERMES_TEXT_PROVIDER", "").strip()
+    # Use the same getters as the application so .env overrides and config.json
+    # fallbacks are diagnosed exactly as they will run.
+    stt_provider = get_stt_provider().lower()
+    image_provider = get_image_provider().lower()
+    text_provider = get_text_provider().lower()
+    configured_text_model = str(get_ollama_model()).strip()
+    hermes_model = get_hermes_model()
+    hermes_provider = get_hermes_provider()
     using_gemini_text = configured_text_model.lower().startswith("gemini")
 
     ok(f"stt_provider={stt_provider}")
 
     imagemagick_path = cfg.get("imagemagick_path", "")
     if imagemagick_path and os.path.exists(imagemagick_path):
-        ok(f"imagemagick_path exists: {imagemagick_path}")
+        ok(f"optional imagemagick_path exists: {imagemagick_path}")
+    elif imagemagick_path:
+        warn(f"optional imagemagick_path does not exist: {imagemagick_path}")
     else:
-        warn(
-            "imagemagick_path is not set to a valid executable path. "
-            "MoviePy subtitle rendering may fail."
-        )
+        ok("ImageMagick is optional; current subtitle/title rendering uses Pillow")
 
     firefox_profile = cfg.get("firefox_profile", "")
     if firefox_profile:
@@ -103,7 +122,7 @@ def main() -> int:
     elif using_gemini_text:
         ok(f"text model uses Google Gemini: {configured_text_model}")
     else:
-        base = str(cfg.get("ollama_base_url", "http://127.0.0.1:11434")).rstrip("/")
+        base = get_ollama_base_url().rstrip("/")
         reachable, detail = check_url(f"{base}/api/tags")
         if not reachable:
             fail(f"Ollama is not reachable at {base}: {detail}")
@@ -121,23 +140,20 @@ def main() -> int:
                 warn(f"Could not validate Ollama model list: {exc}")
 
     # Nano Banana 2 (image generation)
-    api_key = cfg.get("nanobanana2_api_key", "") or os.environ.get("GEMINI_API_KEY", "")
-    nb2_base = str(
-        cfg.get(
-            "nanobanana2_api_base_url",
-            "https://generativelanguage.googleapis.com/v1beta",
-        )
-    ).rstrip("/")
+    api_key = get_nanobanana2_api_key()
+    nb2_base = get_nanobanana2_api_base_url().rstrip("/")
     if image_provider == "hermes":
         ok("Hermes image provider selected; Gemini image API key is not required")
+    elif image_provider == "placeholder":
+        ok("Placeholder image provider selected; external image API key is not required")
     elif api_key:
         ok("nanobanana2_api_key is set")
     else:
         fail("nanobanana2_api_key is empty (and GEMINI_API_KEY is not set)")
         failures += 1
 
-    if image_provider == "hermes":
-        ok("Skipping Nano Banana 2 reachability check for Hermes image provider")
+    if image_provider in {"hermes", "placeholder"}:
+        ok(f"Skipping Nano Banana 2 reachability check for {image_provider} image provider")
     else:
         reachable, detail = check_url(nb2_base, timeout=8)
         if not reachable:

@@ -27,6 +27,15 @@ $RootDir = Split-Path -Parent (Split-Path -Parent $MyInvocation.MyCommand.Path)
 Set-Location $RootDir
 
 $RequiredPythonVersion = "3.12"
+if (
+    [string]::IsNullOrWhiteSpace($VenvDir) -or
+    [System.IO.Path]::IsPathRooted($VenvDir) -or
+    $VenvDir.Contains("\") -or
+    $VenvDir.Contains("/") -or
+    $VenvDir -in @(".", "..")
+) {
+    throw "VenvDir must be a direct child directory name inside the repository (for example 'venv' or '.venv')."
+}
 $VenvPath = Join-Path $RootDir $VenvDir
 $VenvPython = Join-Path $VenvPath "Scripts\python.exe"
 
@@ -99,8 +108,12 @@ if ((Test-Path ".env.example") -and -not (Test-Path ".env")) {
 }
 
 if ((Test-Path $VenvPython) -and $RecreateVenv) {
+    $venvItem = Get-Item -LiteralPath $VenvPath -Force
+    if (($venvItem.Attributes -band [System.IO.FileAttributes]::ReparsePoint) -ne 0) {
+        throw "Refusing to recursively remove a linked virtual environment: $VenvPath"
+    }
     Write-Step "Removing existing $VenvDir because -RecreateVenv was passed"
-    Remove-Item -Recurse -Force $VenvPath
+    Remove-Item -Recurse -Force -LiteralPath $VenvPath
 }
 
 if (Test-Path $VenvPython) {
@@ -124,12 +137,6 @@ $magickPath = ""
 $magickCommand = Get-Command magick -ErrorAction SilentlyContinue
 if ($magickCommand) {
     $magickPath = $magickCommand.Source
-}
-else {
-    $convertCommand = Get-Command convert -ErrorAction SilentlyContinue
-    if ($convertCommand) {
-        $magickPath = $convertCommand.Source
-    }
 }
 
 $firefoxProfile = ""
@@ -163,7 +170,9 @@ if (-not $config.tts_provider) {
     $config | Add-Member -NotePropertyName "tts_provider" -NotePropertyValue "edge" -Force
 }
 
-$config | ConvertTo-Json -Depth 20 | Set-Content -Encoding UTF8 $ConfigPath
+$configJson = ($config | ConvertTo-Json -Depth 20) + [Environment]::NewLine
+$utf8WithoutBom = New-Object System.Text.UTF8Encoding($false)
+[System.IO.File]::WriteAllText($ConfigPath, $configJson, $utf8WithoutBom)
 Write-Step "Updated config.json with Windows-friendly defaults"
 
 Write-Step "Running local preflight..."
@@ -175,6 +184,7 @@ if ($preflightExit -eq 0) {
     Write-Step "Done. Start app with: .\venv\Scripts\python.exe src\main.py"
 }
 else {
-    Write-Step "Setup finished, but preflight found blocking items. Fix config/API/provider values, then rerun: .\venv\Scripts\python.exe scripts\preflight_local.py"
-    exit $preflightExit
+    Write-Step "Dependencies are installed, but preflight found provider/config items. Configure .env/config.json, then rerun: .\venv\Scripts\python.exe scripts\preflight_local.py"
 }
+
+exit 0

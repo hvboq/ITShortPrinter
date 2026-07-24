@@ -6,12 +6,24 @@ Use this guide when developing ITShortPrinter on native Windows PowerShell.
 
 - Windows 10 or newer
 - Git
-- Python 3.12 available through the Windows launcher (`py -3.12`)
-- ImageMagick available as `magick` when rendering subtitles/title overlays
+- [mise](https://mise.jdx.dev/getting-started.html) (recommended), or Python 3.12 available through the Windows launcher (`py -3.12`)
+- FFmpeg available on `PATH` for audio/video rendering
 - Optional: Ollama running at `http://127.0.0.1:11434` for local text generation
+- Optional: ImageMagick for inherited workflows; current Shorts text overlays use Pillow
 - Optional: Google Cloud OAuth Desktop client for YouTube API upload scripts
 
-## One-command setup
+## Recommended mise setup
+
+Run from the repository root:
+
+```powershell
+mise trust
+mise install
+mise run setup
+mise run doctor
+```
+
+## PowerShell setup script
 
 Run from the repository root:
 
@@ -25,9 +37,13 @@ The script will:
 2. Create `.env` from `.env.example` when available and missing.
 3. Create `.\venv` with Python 3.12.
 4. Install `requirements.txt`.
-5. Detect ImageMagick and Firefox profile paths when possible.
+5. Detect an optional `magick.exe` and Firefox profile path when possible.
 6. Normalize `ollama_base_url` to `http://127.0.0.1:11434` for native Windows.
 7. Run `scripts/preflight_local.py`.
+
+Missing provider credentials or CLIs are reported by preflight but do not undo a
+successful dependency installation. Configure `.env` and `config.json`, then run
+`mise run doctor` or the preflight script again.
 
 If `.\venv` already exists with the wrong Python version, recreate it:
 
@@ -42,6 +58,7 @@ py -3.12 -m venv venv
 .\venv\Scripts\python.exe -m pip install --upgrade pip setuptools wheel
 .\venv\Scripts\python.exe -m pip install -r requirements.txt
 Copy-Item config.example.json config.json
+Copy-Item .env.example .env
 .\venv\Scripts\python.exe scripts\preflight_local.py
 ```
 
@@ -69,12 +86,15 @@ py -3.12 --version
 Fill only your local `.env` or ignored `config.json`. Do not commit real API keys,
 tokens, browser profiles, generated media, or `.mp/` runtime data.
 
-### ImageMagick is not detected
+### FFmpeg is not detected
 
-Install ImageMagick, reopen PowerShell, and confirm:
+Install FFmpeg, reopen PowerShell, and confirm:
 
 ```powershell
-magick -version
+ffmpeg -version
 ```
 
-Then rerun the setup script or set `imagemagick_path` in `config.json` manually.
+ImageMagick is not required for the current Pillow-based subtitle and title
+renderer. If an inherited workflow explicitly needs it, install ImageMagick and
+confirm `magick -version`; the setup script intentionally does not fall back to
+Windows' unrelated `convert.exe` utility.
